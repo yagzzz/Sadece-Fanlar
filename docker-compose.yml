@@ -1,0 +1,287 @@
+version: '3.8'
+
+services:
+  # ============================================
+  # DATABASE & CACHE
+  # ============================================
+  postgres:
+    image: postgres:15-alpine
+    container_name: sf_postgres
+    environment:
+      POSTGRES_USER: sadecefanlar
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-changeme_secure_password}
+      POSTGRES_DB: sadecefanlar
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sadecefanlar"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: sf_redis
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-redis_secure_password}
+    volumes:
+      - redis_data:/data
+    ports:
+      - "6379:6379"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ============================================
+  # BACKEND API
+  # ============================================
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: sf_backend
+    environment:
+      - DATABASE_URL=postgresql://sadecefanlar:${DB_PASSWORD:-changeme_secure_password}@postgres:5432/sadecefanlar
+      - REDIS_URL=redis://:${REDIS_PASSWORD:-redis_secure_password}@redis:6379/0
+      - SECRET_KEY=${SECRET_KEY:-your_super_secret_key_change_in_production}
+      - BTCPAY_URL=${BTCPAY_URL:-http://btcpay:49392}
+      - BTCPAY_API_KEY=${BTCPAY_API_KEY}
+      - BTCPAY_STORE_ID=${BTCPAY_STORE_ID}
+      - MONERO_WALLET_RPC_URL=${MONERO_WALLET_RPC_URL:-http://monero-wallet:18083}
+      - MONERO_WALLET_RPC_USER=${MONERO_WALLET_RPC_USER:-rpc_user}
+      - MONERO_WALLET_RPC_PASSWORD=${MONERO_WALLET_RPC_PASSWORD:-rpc_password}
+      - MINIO_ENDPOINT=${MINIO_ENDPOINT:-minio:9000}
+      - MINIO_ACCESS_KEY=${MINIO_ACCESS_KEY:-minioadmin}
+      - MINIO_SECRET_KEY=${MINIO_SECRET_KEY:-minioadmin}
+      - MINIO_BUCKET=${MINIO_BUCKET:-sadecefanlar}
+      - CORS_ORIGINS=${CORS_ORIGINS:-http://localhost:3000,http://localhost:5173}
+      - ENVIRONMENT=${ENVIRONMENT:-development}
+    volumes:
+      - ./backend:/app
+      - media_data:/app/media
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+
+  # ============================================
+  # BACKGROUND WORKERS (Celery)
+  # ============================================
+  celery_worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: sf_celery_worker
+    environment:
+      - DATABASE_URL=postgresql://sadecefanlar:${DB_PASSWORD:-changeme_secure_password}@postgres:5432/sadecefanlar
+      - REDIS_URL=redis://:${REDIS_PASSWORD:-redis_secure_password}@redis:6379/0
+      - SECRET_KEY=${SECRET_KEY:-your_super_secret_key_change_in_production}
+      - BTCPAY_URL=${BTCPAY_URL:-http://btcpay:49392}
+      - BTCPAY_API_KEY=${BTCPAY_API_KEY}
+      - MONERO_WALLET_RPC_URL=${MONERO_WALLET_RPC_URL:-http://monero-wallet:18083}
+      - MINIO_ENDPOINT=${MINIO_ENDPOINT:-minio:9000}
+      - MINIO_ACCESS_KEY=${MINIO_ACCESS_KEY:-minioadmin}
+      - MINIO_SECRET_KEY=${MINIO_SECRET_KEY:-minioadmin}
+    volumes:
+      - ./backend:/app
+      - media_data:/app/media
+    depends_on:
+      - postgres
+      - redis
+    restart: unless-stopped
+    command: celery -A app.worker worker --loglevel=info --concurrency=4
+
+  celery_beat:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: sf_celery_beat
+    environment:
+      - DATABASE_URL=postgresql://sadecefanlar:${DB_PASSWORD:-changeme_secure_password}@postgres:5432/sadecefanlar
+      - REDIS_URL=redis://:${REDIS_PASSWORD:-redis_secure_password}@redis:6379/0
+    volumes:
+      - ./backend:/app
+    depends_on:
+      - postgres
+      - redis
+    restart: unless-stopped
+    command: celery -A app.worker beat --loglevel=info
+
+  # ============================================
+  # FRONTEND
+  # ============================================
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: sf_frontend
+    environment:
+      - PUBLIC_API_URL=${PUBLIC_API_URL:-http://localhost:8000}
+      - PUBLIC_WS_URL=${PUBLIC_WS_URL:-ws://localhost:8000}
+      - ORIGIN=${ORIGIN:-http://localhost:3000}
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+  # ============================================
+  # OBJECT STORAGE (S3-compatible)
+  # ============================================
+  minio:
+    image: minio/minio:latest
+    container_name: sf_minio
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ACCESS_KEY:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_SECRET_KEY:-minioadmin}
+    volumes:
+      - minio_data:/data
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    command: server /data --console-address ":9001"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+
+  # ============================================
+  # BTCPAY SERVER (Bitcoin/Lightning)
+  # ============================================
+  btcpay:
+    image: btcpayserver/btcpayserver:latest
+    container_name: sf_btcpay
+    environment:
+      BTCPAY_POSTGRES: Host=postgres;Database=btcpay;Username=sadecefanlar;Password=${DB_PASSWORD:-changeme_secure_password}
+      BTCPAY_NETWORK: ${BTCPAY_NETWORK:-mainnet}
+      BTCPAY_BIND: 0.0.0.0:49392
+      BTCPAY_ROOTPATH: /
+      BTCPAY_SSHCONNECTION: ""
+      BTCPAY_DEBUGLOG: btcpay.log
+    volumes:
+      - btcpay_data:/datadir
+    ports:
+      - "49392:49392"
+    depends_on:
+      - postgres
+    restart: unless-stopped
+    links:
+      - postgres
+
+  # ============================================
+  # MONERO DAEMON & WALLET RPC
+  # ============================================
+  monerod:
+    image: sethsimmons/simple-monerod:latest
+    container_name: sf_monerod
+    volumes:
+      - monero_data:/home/monero/.bitmonero
+    ports:
+      - "18080:18080"
+      - "18081:18081"
+    command: >
+      monerod
+      --non-interactive
+      --restricted-rpc
+      --rpc-bind-ip=0.0.0.0
+      --rpc-bind-port=18081
+      --confirm-external-bind
+      --enable-dns-blocklist
+      --prune-blockchain
+      --sync-pruned-blocks
+      --db-sync-mode=safe
+    restart: unless-stopped
+
+  monero-wallet:
+    image: sethsimmons/simple-monero-wallet-rpc:latest
+    container_name: sf_monero_wallet
+    volumes:
+      - monero_wallet_data:/home/monero/wallet
+    ports:
+      - "18083:18083"
+    environment:
+      WALLET_RPC_USER: ${MONERO_WALLET_RPC_USER:-rpc_user}
+      WALLET_RPC_PASS: ${MONERO_WALLET_RPC_PASSWORD:-rpc_password}
+    command: >
+      monero-wallet-rpc
+      --non-interactive
+      --rpc-bind-ip=0.0.0.0
+      --rpc-bind-port=18083
+      --confirm-external-bind
+      --daemon-host=monerod
+      --daemon-port=18081
+      --rpc-login=${MONERO_WALLET_RPC_USER:-rpc_user}:${MONERO_WALLET_RPC_PASSWORD:-rpc_password}
+      --wallet-dir=/home/monero/wallet
+      --disable-rpc-login=false
+    depends_on:
+      - monerod
+    restart: unless-stopped
+
+  # ============================================
+  # NGINX REVERSE PROXY
+  # ============================================
+  nginx:
+    image: nginx:alpine
+    container_name: sf_nginx
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/ssl:/etc/nginx/ssl:ro
+      - media_data:/var/www/media:ro
+    ports:
+      - "80:80"
+      - "443:443"
+    depends_on:
+      - backend
+      - frontend
+    restart: unless-stopped
+
+  # ============================================
+  # MEDIA PROCESSING (FFmpeg worker)
+  # ============================================
+  media_processor:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.media
+    container_name: sf_media_processor
+    environment:
+      - DATABASE_URL=postgresql://sadecefanlar:${DB_PASSWORD:-changeme_secure_password}@postgres:5432/sadecefanlar
+      - REDIS_URL=redis://:${REDIS_PASSWORD:-redis_secure_password}@redis:6379/0
+      - MINIO_ENDPOINT=${MINIO_ENDPOINT:-minio:9000}
+      - MINIO_ACCESS_KEY=${MINIO_ACCESS_KEY:-minioadmin}
+      - MINIO_SECRET_KEY=${MINIO_SECRET_KEY:-minioadmin}
+    volumes:
+      - ./backend:/app
+      - media_data:/app/media
+    depends_on:
+      - redis
+      - minio
+    restart: unless-stopped
+    command: celery -A app.worker worker --loglevel=info --queues=media --concurrency=2
+
+volumes:
+  postgres_data:
+  redis_data:
+  minio_data:
+  btcpay_data:
+  monero_data:
+  monero_wallet_data:
+  media_data:
+
+networks:
+  default:
+    name: sadecefanlar_network

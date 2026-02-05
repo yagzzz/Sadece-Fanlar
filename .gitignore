@@ -1,0 +1,21 @@
+# Ignore local env
+.env
+
+# Python
+.venv/
+__pycache__/
+*.pyc
+
+# Node
+**/node_modules/
+**/.svelte-kit/
+**/dist/
+
+# Logs
+*.log
+
+# OS
+.DS_Store
+
+# Exclude vendor folder requested
+justfans_v6.9.0/

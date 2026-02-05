@@ -1,0 +1,6 @@
+{
+  "python.defaultInterpreterPath": "/home/yagobaba/sadece-fanlar/.venv/bin/python",
+  "python.analysis.extraPaths": [
+    "/home/yagobaba/sadece-fanlar/backend"
+  ]
+}
