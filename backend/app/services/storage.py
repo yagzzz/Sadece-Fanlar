@@ -81,15 +81,8 @@ class StorageService:
             content_type=file.content_type,
         )
         
-        # Generate URL
-        url = f"{settings.minio_endpoint}/{self.bucket}/{filename}"
-        if settings.minio_use_ssl:
-            url = f"https://{url}"
-        else:
-            url = f"http://{url}"
-        
         return {
-            "url": url,
+            "url": self._get_url(filename),
             "filename": filename,
             "original_filename": file.filename,
             "file_size": file_size,
@@ -212,7 +205,14 @@ class StorageService:
             return False
     
     def _get_url(self, filename: str) -> str:
-        """Get public URL for a file"""
+        """Get public URL for a file.
+
+        Tarayıcının erişebilmesi için minio_public_url tercih edilir; aksi halde
+        (yalnızca aynı ağdan erişilebilen) minio_endpoint kullanılır.
+        """
+        if settings.minio_public_url:
+            base = settings.minio_public_url.rstrip("/")
+            return f"{base}/{self.bucket}/{filename}"
         protocol = "https" if settings.minio_use_ssl else "http"
         return f"{protocol}://{settings.minio_endpoint}/{self.bucket}/{filename}"
     

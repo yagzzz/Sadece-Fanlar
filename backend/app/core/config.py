@@ -70,6 +70,9 @@ class Settings(BaseSettings):
     minio_secret_key: str = "minioadmin"
     minio_bucket: str = "sadecefanlar"
     minio_use_ssl: bool = False
+    # Tarayıcının erişebileceği genel medya adresi (ör. https://media.alanadiniz.com).
+    # Boşsa minio_endpoint kullanılır (yalnızca aynı ağdan erişilebilir).
+    minio_public_url: str = ""
     
     # BTCPay Server
     btcpay_url: str = "http://localhost:49392"
