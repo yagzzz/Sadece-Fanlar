@@ -309,29 +309,15 @@ async def request_withdrawal(
     if data.payment_method == PaymentMethod.MONERO:
         crypto_amount, exchange_rate = await monero_service.calculate_xmr_amount(net_amount)
         crypto_currency = "XMR"
-        
-        # Validate address
-        if not data.address:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Monero adresi gerekli"
-            )
-        
     elif data.payment_method == PaymentMethod.BTCPAY:
         crypto_amount, exchange_rate = await btcpay_service.calculate_btc_amount(net_amount)
         crypto_currency = "BTC"
-        
-        if not data.address:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Bitcoin adresi gerekli"
-            )
     else:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Geçersiz ödeme yöntemi"
         )
-    
+
     # Create withdrawal request
     withdrawal = Withdrawal(
         user_id=current_user.id,
@@ -339,7 +325,7 @@ async def request_withdrawal(
         fee=withdrawal_fee,
         net_amount=net_amount,
         payment_method=data.payment_method,
-        address=data.address,
+        payout_address=data.payout_address,
         crypto_amount=crypto_amount,
         crypto_currency=crypto_currency,
         exchange_rate=exchange_rate,
@@ -353,22 +339,8 @@ async def request_withdrawal(
     db.add(withdrawal)
     await db.commit()
     await db.refresh(withdrawal)
-    
-    return WithdrawalResponse(
-        id=withdrawal.id,
-        amount=float(withdrawal.amount),
-        fee=float(withdrawal.fee),
-        net_amount=float(withdrawal.net_amount),
-        crypto_amount=float(withdrawal.crypto_amount) if withdrawal.crypto_amount else None,
-        crypto_currency=withdrawal.crypto_currency,
-        exchange_rate=float(withdrawal.exchange_rate) if withdrawal.exchange_rate else None,
-        payment_method=withdrawal.payment_method,
-        address=withdrawal.address,
-        status=withdrawal.status,
-        created_at=withdrawal.created_at,
-        processed_at=withdrawal.processed_at,
-        tx_hash=withdrawal.tx_hash,
-    )
+
+    return WithdrawalResponse.model_validate(withdrawal)
 
 
 @router.get("/withdrawals", response_model=PaginatedResponse)
@@ -499,26 +471,36 @@ async def save_payout_address(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
-    """Save preferred payout address"""
+    """Save preferred payout address (kullanıcı ayarlarında saklanır)"""
+    from app.models.user import UserSettings
+
     address_type = data.get("type")  # "monero" or "bitcoin"
     address = data.get("address")
-    
+
     if not address_type or not address:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Adres tipi ve adres gerekli"
         )
-    
+
+    result = await db.execute(
+        select(UserSettings).where(UserSettings.user_id == current_user.id)
+    )
+    user_settings = result.scalar_one_or_none()
+    if not user_settings:
+        user_settings = UserSettings(user_id=current_user.id)
+        db.add(user_settings)
+
     if address_type == "monero":
-        current_user.payout_monero_address = address
+        user_settings.monero_address = address
     elif address_type == "bitcoin":
-        current_user.payout_bitcoin_address = address
+        user_settings.btc_address = address
     else:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Geçersiz adres tipi"
         )
-    
+
     await db.commit()
-    
+
     return SuccessResponse(message="Ödeme adresi kaydedildi")

@@ -65,18 +65,18 @@ class TransactionResponse(BaseModel):
     net_amount: float
     currency: str
     
-    crypto_amount: Optional[float]
-    crypto_currency: Optional[str]
+    crypto_amount: Optional[float] = None
+    crypto_currency: Optional[str] = None
     
     payment_method: PaymentMethod
-    payment_id: Optional[str]
+    payment_id: Optional[str] = None
     
-    # Related user (sender or recipient)
-    other_user_id: Optional[UUID]
-    other_user_username: Optional[str]
-    other_user_avatar: Optional[str]
+    # Related user (sender or recipient) - ORM nesnesinde bulunmayabilir
+    other_user_id: Optional[UUID] = None
+    other_user_username: Optional[str] = None
+    other_user_avatar: Optional[str] = None
     
-    description: Optional[str]
+    description: Optional[str] = None
     
     created_at: datetime
     
@@ -132,21 +132,16 @@ class WithdrawalResponse(BaseModel):
 
 
 class EarningsStats(BaseModel):
-    """Earnings statistics"""
-    total_earnings: float
-    earnings_this_month: float
-    earnings_last_month: float
-    
-    subscriptions_revenue: float
-    tips_revenue: float
-    ppv_revenue: float
-    stream_revenue: float
-    
-    pending_balance: float
-    available_balance: float
-    
-    total_subscribers: int
-    new_subscribers_this_month: int
-    
-    # Chart data
-    daily_earnings: list = []  # Last 30 days
+    """
+    Kazanç istatistikleri.
+    Alanlar wallet route'unun döndürdüğü değerlerle ve frontend tipiyle eşleşir.
+    """
+    total: float = 0
+    subscriptions: float = 0
+    tips: float = 0
+    post_unlocks: float = 0
+    messages: float = 0
+    referrals: float = 0
+    transaction_count: int = 0
+    platform_fees: float = 0
+    period: str = "month"

@@ -59,6 +59,15 @@ class AdminAction(str, Enum):
     WITHDRAWAL_REJECT = "withdrawal_reject"
     WITHDRAWAL_PROCESS = "withdrawal_process"
     PAYMENT_REFUND = "payment_refund"
+    # Admin route'larının kullandığı isimler (geriye dönük uyum)
+    UPDATE_USER = "update_user"
+    BAN_USER = "ban_user"
+    UNBAN_USER = "unban_user"
+    REMOVE_CONTENT = "remove_content"
+    RESOLVE_REPORT = "resolve_report"
+    APPROVE_WITHDRAWAL = "approve_withdrawal"
+    REJECT_WITHDRAWAL = "reject_withdrawal"
+    UPDATE_SETTINGS = "update_settings"
 
 
 class AdminLog(Base):

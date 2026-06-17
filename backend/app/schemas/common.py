@@ -18,22 +18,30 @@ class PaginationParams(BaseModel):
 
 
 class PaginatedResponse(BaseModel, Generic[T]):
-    """Paginated response"""
+    """
+    Sayfalanmış yanıt.
+    Route'ların kullandığı (has_next/has_prev) ve frontend'in beklediği
+    alanlarla uyumludur; per_page opsiyoneldir.
+    """
     items: List[T]
     total: int
     page: int
-    per_page: int
-    pages: int
+    per_page: int = 0
+    pages: int = 0
+    has_next: bool = False
+    has_prev: bool = False
     
     @classmethod
     def create(cls, items: List[T], total: int, page: int, per_page: int):
-        pages = (total + per_page - 1) // per_page
+        pages = (total + per_page - 1) // per_page if per_page else 0
         return cls(
             items=items,
             total=total,
             page=page,
             per_page=per_page,
-            pages=pages
+            pages=pages,
+            has_next=page < pages,
+            has_prev=page > 1,
         )
 
 

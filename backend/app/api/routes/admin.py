@@ -15,7 +15,7 @@ from app.core.config import settings
 from app.models.user import User, UserRole, UserStatus
 from app.models.post import Post, PostStatus
 from app.models.subscription import Subscription
-from app.models.transaction import Transaction, TransactionType, TransactionStatus, Wallet, Withdrawal, WithdrawalStatus
+from app.models.transaction import Transaction, TransactionType, TransactionStatus, PaymentMethod, Wallet, Withdrawal, WithdrawalStatus
 from app.models.admin import (
     AdminLog,
     AdminAction,
@@ -47,6 +47,19 @@ router = APIRouter(prefix="/admin", tags=["Admin"])
 
 # ============ ADMIN MIDDLEWARE ============
 
+def _json_safe(details: Optional[dict]) -> Optional[dict]:
+    """UUID/datetime gibi değerleri JSONB için string'e çevirir."""
+    if not details:
+        return None
+    safe = {}
+    for key, value in details.items():
+        if isinstance(value, (UUID, datetime)):
+            safe[key] = str(value)
+        else:
+            safe[key] = value
+    return safe
+
+
 async def log_admin_action(
     db: AsyncSession,
     admin_id: UUID,
@@ -56,14 +69,18 @@ async def log_admin_action(
     details: Optional[dict] = None,
     ip_address: Optional[str] = None,
 ):
-    """Log admin action"""
+    """
+    Yönetici işlemini kaydeder.
+    GİZLİLİK: IP adresi saklanmaz (anonimlik). AdminLog modeline uygun
+    şekilde `description` ve `data` alanları kullanılır.
+    """
     log = AdminLog(
         admin_id=admin_id,
         action=action,
+        description=f"{action.value} -> {target_type}" + (f":{target_id}" if target_id else ""),
         target_type=target_type,
         target_id=target_id,
-        details=details,
-        ip_address=ip_address,
+        data=_json_safe(details),
     )
     db.add(log)
     await db.commit()
@@ -445,9 +462,7 @@ async def remove_post(
         )
     
     post.status = PostStatus.REMOVED
-    post.removed_reason = reason
-    post.removed_at = datetime.utcnow()
-    post.removed_by = admin.id
+    post.deleted_at = datetime.utcnow()
     
     await db.commit()
     
@@ -522,9 +537,9 @@ async def update_report(
         )
     
     report.status = data.status
-    report.admin_notes = data.admin_notes
-    report.resolved_by = admin.id
-    report.resolved_at = datetime.utcnow()
+    report.resolution_note = data.admin_notes
+    report.reviewed_by_id = admin.id
+    report.reviewed_at = datetime.utcnow()
     
     await db.commit()
     await db.refresh(report)
@@ -604,14 +619,14 @@ async def approve_withdrawal(
     
     # Process the actual payment
     try:
-        if withdrawal.payment_method == "monero":
-            tx_hash = await monero_service.send_payment(
-                address=withdrawal.address,
+        if withdrawal.payment_method == PaymentMethod.MONERO:
+            tx_hash, _fee = await monero_service.send_payment(
+                address=withdrawal.payout_address,
                 amount=float(withdrawal.crypto_amount),
             )
-        elif withdrawal.payment_method == "btcpay":
+        elif withdrawal.payment_method == PaymentMethod.BTCPAY:
             payout = await btcpay_service.create_payout(
-                destination=withdrawal.address,
+                destination=withdrawal.payout_address,
                 amount=float(withdrawal.crypto_amount),
             )
             tx_hash = payout.get("id")
@@ -623,7 +638,8 @@ async def approve_withdrawal(
         
         withdrawal.status = WithdrawalStatus.COMPLETED
         withdrawal.processed_at = datetime.utcnow()
-        withdrawal.processed_by = admin.id
+        withdrawal.reviewed_by_id = admin.id
+        withdrawal.reviewed_at = datetime.utcnow()
         withdrawal.tx_hash = tx_hash
         
         # Update user's wallet
@@ -693,7 +709,8 @@ async def reject_withdrawal(
     
     withdrawal.status = WithdrawalStatus.REJECTED
     withdrawal.processed_at = datetime.utcnow()
-    withdrawal.processed_by = admin.id
+    withdrawal.reviewed_by_id = admin.id
+    withdrawal.reviewed_at = datetime.utcnow()
     withdrawal.rejection_reason = reason
     
     await db.commit()
@@ -785,11 +802,11 @@ async def create_announcement(
     announcement = Announcement(
         title=data.title,
         content=data.content,
-        type=data.type,
+        content_html=data.content,
         is_active=data.is_active,
         starts_at=data.starts_at,
-        ends_at=data.ends_at,
-        created_by=admin.id,
+        expires_at=data.ends_at,
+        created_by_id=admin.id,
     )
     
     db.add(announcement)

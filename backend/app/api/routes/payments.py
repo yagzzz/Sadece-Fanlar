@@ -240,22 +240,48 @@ async def check_payment_status(
     )
 
 
+def _request_type_to_tx_type(req_type: PaymentRequestType) -> TransactionType:
+    """Ödeme isteği türünü işlem türüne çevirir."""
+    mapping = {
+        PaymentRequestType.DEPOSIT: TransactionType.DEPOSIT,
+        PaymentRequestType.TIP: TransactionType.TIP,
+        PaymentRequestType.POST_UNLOCK: TransactionType.POST_UNLOCK,
+        PaymentRequestType.MESSAGE_UNLOCK: TransactionType.MESSAGE_UNLOCK,
+        PaymentRequestType.SUBSCRIPTION: TransactionType.SUBSCRIPTION,
+        PaymentRequestType.STREAM_ACCESS: TransactionType.STREAM_ACCESS,
+    }
+    return mapping.get(req_type, TransactionType.TIP)
+
+
 async def _process_completed_payment(
     payment_request: PaymentRequest,
     db: AsyncSession
 ):
-    """Process a completed payment"""
+    """
+    Tamamlanan bir ödemeyi işler.
+
+    ÖNEMLİ: İdempotent'tir - aynı ödeme isteği birden fazla kez (webhook +
+    durum sorgusu) işlenirse bakiye İKİ KEZ yüklenmez. Ayrıca kripto ile
+    yapılan bahşiş/PPV ödemelerinde alıcı (içerik üreticisi) artık doğru
+    şekilde kredilendirilir (önceki kodda para kayboluyordu).
+    """
+    # İdempotensi: bu ödeme için zaten bir işlem kaydı varsa tekrar işleme.
+    existing_tx = await db.execute(
+        select(Transaction).where(Transaction.payment_id == str(payment_request.id))
+    )
+    if existing_tx.scalar_one_or_none():
+        return
+
     if payment_request.type == PaymentRequestType.DEPOSIT:
-        # Credit user's wallet
+        # Kullanıcının cüzdanına bakiye yükle
         result = await db.execute(
             select(Wallet).where(Wallet.user_id == payment_request.user_id)
         )
         wallet = result.scalar_one_or_none()
-        
+
         if wallet:
             wallet.balance += payment_request.amount_usd
-        
-        # Create transaction record
+
         transaction = Transaction(
             user_id=payment_request.user_id,
             type=TransactionType.DEPOSIT,
@@ -270,6 +296,56 @@ async def _process_completed_payment(
             exchange_rate=payment_request.exchange_rate,
         )
         db.add(transaction)
+        return
+
+    # Bahşiş / PPV / abonelik vb. - alıcıya (içerik üreticisine) öde
+    if payment_request.recipient_id:
+        amount = float(payment_request.amount_usd)
+        platform_fee = amount * (settings.platform_fee_percent / 100)
+        net_amount = amount - platform_fee
+
+        # Alıcının cüzdanına net tutarı yükle
+        result = await db.execute(
+            select(Wallet).where(Wallet.user_id == payment_request.recipient_id)
+        )
+        recipient_wallet = result.scalar_one_or_none()
+        if recipient_wallet:
+            recipient_wallet.balance += net_amount
+            recipient_wallet.total_earned += net_amount
+
+        post_id = (
+            payment_request.reference_id
+            if payment_request.reference_type == "post"
+            else None
+        )
+        message = None
+        if payment_request.payment_metadata:
+            message = payment_request.payment_metadata.get("message")
+
+        transaction = Transaction(
+            user_id=payment_request.user_id,
+            recipient_id=payment_request.recipient_id,
+            type=_request_type_to_tx_type(payment_request.type),
+            status=TransactionStatus.COMPLETED,
+            amount=amount,
+            fee=platform_fee,
+            net_amount=net_amount,
+            payment_method=payment_request.payment_method,
+            payment_id=str(payment_request.id),
+            crypto_amount=payment_request.amount_crypto,
+            crypto_currency=payment_request.crypto_currency,
+            exchange_rate=payment_request.exchange_rate,
+            post_id=post_id,
+            description=message,
+        )
+        db.add(transaction)
+
+        # Bahşiş ise gönderinin toplam bahşişini güncelle
+        if post_id and payment_request.type == PaymentRequestType.TIP:
+            post_result = await db.execute(select(Post).where(Post.id == post_id))
+            post = post_result.scalar_one_or_none()
+            if post:
+                post.tips_total += amount
 
 
 @router.post("/tip", response_model=PaymentRequestResponse)
@@ -390,7 +466,7 @@ async def send_tip(
             reference_type="post" if data.post_id else None,
             reference_id=data.post_id,
             expires_at=datetime.utcnow() + timedelta(hours=1),
-            metadata={"message": data.message} if data.message else None,
+            payment_metadata={"message": data.message} if data.message else None,
         )
         
     elif data.payment_method == "btcpay":
@@ -423,7 +499,7 @@ async def send_tip(
             reference_type="post" if data.post_id else None,
             reference_id=data.post_id,
             expires_at=datetime.utcnow() + timedelta(hours=1),
-            metadata={"message": data.message} if data.message else None,
+            payment_metadata={"message": data.message} if data.message else None,
         )
     else:
         raise HTTPException(

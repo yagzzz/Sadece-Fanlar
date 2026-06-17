@@ -15,12 +15,12 @@ from app.models.transaction import WithdrawalStatus, PaymentMethod
 class AdminUserResponse(BaseModel):
     id: UUID
     username: str
-    email: str
+    email: Optional[str] = None
     display_name: Optional[str] = None
     role: UserRole
     status: UserStatus
     is_creator: bool
-    is_verified: bool
+    is_verified_creator: bool = False
     is_email_verified: bool
     subscribers_count: int = 0
     posts_count: int = 0
@@ -41,7 +41,7 @@ class AdminUserResponse(BaseModel):
 class AdminUserUpdate(BaseModel):
     role: Optional[UserRole] = None
     status: Optional[UserStatus] = None
-    is_verified: Optional[bool] = None
+    is_verified_creator: Optional[bool] = None
     is_email_verified: Optional[bool] = None
     is_creator: Optional[bool] = None
 
@@ -65,14 +65,14 @@ class ReportResponse(BaseModel):
     reporter_id: UUID
     reported_user_id: Optional[UUID] = None
     type: ReportType
-    reason: str
+    reason: Optional[str] = None
     description: Optional[str] = None
-    reference_type: Optional[str] = None
-    reference_id: Optional[UUID] = None
+    reported_type: Optional[str] = None
+    reported_id: Optional[UUID] = None
     status: ReportStatus
-    admin_notes: Optional[str] = None
-    resolved_by: Optional[UUID] = None
-    resolved_at: Optional[datetime] = None
+    resolution_note: Optional[str] = None
+    reviewed_by_id: Optional[UUID] = None
+    reviewed_at: Optional[datetime] = None
     created_at: datetime
     
     class Config:
@@ -94,11 +94,11 @@ class WithdrawalAdminResponse(BaseModel):
     crypto_currency: Optional[str] = None
     exchange_rate: Optional[float] = None
     payment_method: PaymentMethod
-    address: str
+    payout_address: str
     status: WithdrawalStatus
     tx_hash: Optional[str] = None
     rejection_reason: Optional[str] = None
-    processed_by: Optional[UUID] = None
+    reviewed_by_id: Optional[UUID] = None
     processed_at: Optional[datetime] = None
     created_at: datetime
     
@@ -128,11 +128,11 @@ class AnnouncementResponse(BaseModel):
     id: UUID
     title: str
     content: str
-    type: str
+    type: str = "info"
     is_active: bool
     starts_at: Optional[datetime] = None
-    ends_at: Optional[datetime] = None
-    created_by: UUID
+    expires_at: Optional[datetime] = None
+    created_by_id: UUID
     created_at: datetime
     
     class Config:
