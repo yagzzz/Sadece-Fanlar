@@ -6,20 +6,21 @@
 
 	$: user = $authStore.user;
 	$: currentPath = $page.url.pathname;
+	$: isLanding = currentPath === '/' && !user;
 
 	const navItems = [
-		{ href: '/', label: 'Home', icon: '🏠' },
-		{ href: '/explore', label: 'Explore', icon: '🔍' },
-		{ href: '/messages', label: 'Messages', icon: '💬', auth: true },
-		{ href: '/notifications', label: 'Notifications', icon: '🔔', auth: true },
+		{ href: '/', label: 'Ana Sayfa', icon: '🏠' },
+		{ href: '/explore', label: 'Keşfet', icon: '🔍' },
+		{ href: '/messages', label: 'Mesajlar', icon: '💬', auth: true },
+		{ href: '/notifications', label: 'Bildirimler', icon: '🔔', auth: true },
 	];
 
 	const userMenuItems = [
-		{ id: 'profile', label: 'My Profile', icon: '👤' },
-		{ id: 'settings', label: 'Settings', icon: '⚙️' },
-		{ id: 'wallet', label: 'Wallet', icon: '💰' },
+		{ id: 'profile', label: 'Profilim', icon: '👤' },
+		{ id: 'settings', label: 'Ayarlar', icon: '⚙️' },
+		{ id: 'wallet', label: 'Cüzdan', icon: '💰' },
 		{ id: 'divider', label: '', divider: true },
-		{ id: 'logout', label: 'Logout', icon: '🚪', danger: true },
+		{ id: 'logout', label: 'Çıkış Yap', icon: '🚪', danger: true },
 	];
 
 	function handleUserMenuSelect(e: CustomEvent<string>) {
@@ -82,7 +83,7 @@
 						)}
 					>
 						<span class="text-xl">👤</span>
-						<span>Profile</span>
+						<span>Profil</span>
 					</a>
 				{/if}
 			</nav>
@@ -91,7 +92,7 @@
 			<div class="px-4 pb-4">
 				{#if user}
 					<Button href="/new-post" class="w-full mb-4">
-						+ New Post
+						+ Yeni Gönderi
 					</Button>
 					<Dropdown items={userMenuItems} align="left" on:select={handleUserMenuSelect}>
 						<button
@@ -111,8 +112,8 @@
 					</Dropdown>
 				{:else}
 					<div class="space-y-2">
-						<Button href="/login" class="w-full">Login</Button>
-						<Button href="/register" variant="outline" class="w-full">Sign Up</Button>
+						<Button href="/login" class="w-full">Giriş Yap</Button>
+						<Button href="/register" variant="outline" class="w-full">Kayıt Ol</Button>
 					</div>
 				{/if}
 			</div>
@@ -131,7 +132,7 @@
 					</button>
 				</Dropdown>
 			{:else}
-				<Button href="/login" size="sm">Login</Button>
+				<Button href="/login" size="sm">Giriş Yap</Button>
 			{/if}
 		</div>
 	</header>
@@ -169,7 +170,7 @@
 
 	<!-- Main Content -->
 	<main class="lg:pl-64 pt-16 lg:pt-0 pb-20 lg:pb-0">
-		<div class="max-w-2xl mx-auto">
+		<div class={isLanding ? 'w-full' : 'max-w-2xl mx-auto'}>
 			<slot />
 		</div>
 	</main>

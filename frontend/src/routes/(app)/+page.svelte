@@ -1,8 +1,7 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
 	import { api } from '$lib/api';
 	import { authStore } from '$lib/stores/auth';
-	import { PostCard } from '$lib/components/features';
+	import { PostCard, Landing } from '$lib/components/features';
 	import { Button, Spinner, Skeleton } from '$lib/components/ui';
 	import type { Post } from '$lib/types';
 
@@ -12,11 +11,8 @@
 	let hasMore = true;
 	let page = 1;
 
-	const inlineAds = [
-		{ id: 'ad-1', title: 'Sponsorlu', text: 'Yeni içerik üreticilerini keşfet.', cta: 'Keşfet' },
-		{ id: 'ad-2', title: 'Sponsorlu', text: 'Özel içerikler için premium paket.', cta: 'İncele' },
-		{ id: 'ad-3', title: 'Sponsorlu', text: 'Canlı yayınları kaçırma.', cta: 'Canlıya Git' },
-	];
+	$: isReady = $authStore.initialized;
+	$: isLoggedIn = !!$authStore.user;
 
 	async function loadPosts() {
 		try {
@@ -64,15 +60,26 @@
 		}
 	}
 
-	onMount(() => {
-		loadPosts();
-	});
+	let started = false;
+	// Auth durumu hazır olduğunda: giriş yapıldıysa akışı yükle,
+	// yapılmadıysa tanıtım (landing) sayfasını göster.
+	$: if (isReady) {
+		if (isLoggedIn && !started) {
+			started = true;
+			loadPosts();
+		} else if (!isLoggedIn) {
+			loading = false;
+		}
+	}
 </script>
 
 <svelte:head>
-	<title>Akış | SadeceFanlar</title>
+	<title>{isLoggedIn ? 'Akış' : 'SadeceFanlar — Anonim, kripto tabanlı içerik platformu'} | SadeceFanlar</title>
 </svelte:head>
 
+{#if isReady && !isLoggedIn}
+	<Landing />
+{:else}
 <div class="p-4 space-y-4">
 	<!-- Create Post CTA -->
 	{#if $authStore.user}
@@ -114,7 +121,7 @@
 			<Button href="/explore">İçerik Üreticilerini Keşfet</Button>
 		</div>
 	{:else}
-		{#each posts as post, index (post.id)}
+		{#each posts as post (post.id)}
 			<PostCard
 				{post}
 				on:like={handleLike}
@@ -123,18 +130,6 @@
 				on:unlock={(e) => console.log('unlock', e.detail)}
 				on:tip={(e) => console.log('tip', e.detail)}
 			/>
-
-			{#if (index + 1) % 4 === 0}
-				{#each inlineAds.slice(0, 1) as ad (ad.id)}
-					<div class="rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-4">
-						<div class="text-xs text-neutral-400">{ad.title}</div>
-						<div class="mt-1 text-sm font-semibold text-neutral-900 dark:text-white">{ad.text}</div>
-						<button class="mt-3 inline-flex items-center rounded-lg border border-neutral-200 dark:border-neutral-700 px-3 py-1 text-xs text-neutral-700 dark:text-neutral-200">
-							{ad.cta}
-						</button>
-					</div>
-				{/each}
-			{/if}
 		{/each}
 
 		<!-- Load More -->
@@ -149,3 +144,4 @@
 		{/if}
 	{/if}
 </div>
+{/if}

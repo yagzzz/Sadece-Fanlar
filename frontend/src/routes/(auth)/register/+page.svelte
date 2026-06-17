@@ -12,75 +12,42 @@
 	let confirmPassword = '';
 	let displayName = '';
 	let agreedToTerms = false;
+	let ageConfirmed = false;
 	let loading = false;
 	let error = '';
 	let step = 1;
 
-	// Creator application
-	let showCreatorApplication = false;
-	let fullName = '';
-	let birthDate = '';
-	let gender = '';
-	let facePhotos: File[] = [];
-	let submittingApplication = false;
-	let applicationMessage = '';
+	// Gizlilik öncelikli içerik üretici onboarding (kimlik/yüz fotoğrafı YOK)
+	let wantCreator = false;
+	let bio = '';
+	let subscriptionPrice = 10;
 	let selectedCategories: string[] = [];
 
 	const categoryOptions = [
-		'Rule34',
 		'Günlük Hayat',
-		'Ayak',
-		'Nude',
-		'Poz',
 		'Fotoğraf-Video',
+		'Poz',
+		'Ayak',
+		'ASMR',
+		'Canlı içerik',
 		'Özel İstek',
 		'Özel Mesaj',
-		'Canlı içerik',
-		'ASMR',
-		'Rastgele (Genel)',
-		'Diğer',
-	];
-
-	const genderOptions = [
-		'Erkek',
-		'Kadın',
-		'Non-binary',
-		'Belirtmek istemiyorum',
+		'Genel',
 		'Diğer',
 	];
 
 	$: emailError = email && !isValidEmail(email) ? 'Geçersiz e-posta adresi' : '';
-	$: usernameError = username && !isValidUsername(username) ? 'Kullanıcı adı 3-20 karakter olmalı, sadece harf, rakam ve alt çizgi içerebilir' : '';
-	$: passwordError = password && !isStrongPassword(password) ? 'Şifre en az 8 karakter olmalı, büyük harf, küçük harf, rakam ve özel karakter içermeli' : '';
-	$: confirmError = confirmPassword && password !== confirmPassword ? 'Şifreler eşleşmiyor' : '';
-	$: if ($page.url.searchParams.get('creator') === '1') showCreatorApplication = true;
-
-	async function handleSubmit() {
-		if (step === 1) {
-			if (emailError || usernameError) return;
-			step = 2;
-			return;
-		}
-
-		if (passwordError || confirmError || !agreedToTerms) return;
-
-		loading = true;
-		error = '';
-
-		try {
-			await register({
-				email,
-				username,
-				password,
-				display_name: displayName || username,
-			});
-			goto('/');
-		} catch (err: any) {
-			error = err.message || 'Registration failed. Please try again.';
-		} finally {
-			loading = false;
-		}
-	}
+	$: usernameError =
+		username && !isValidUsername(username)
+			? 'Kullanıcı adı 3-20 karakter olmalı; sadece harf, rakam ve alt çizgi'
+			: '';
+	$: passwordError =
+		password && !isStrongPassword(password)
+			? 'Şifre en az 8 karakter olmalı; büyük harf, küçük harf ve rakam içermeli'
+			: '';
+	$: confirmError =
+		confirmPassword && password !== confirmPassword ? 'Şifreler eşleşmiyor' : '';
+	$: if ($page.url.searchParams.get('creator') === '1') wantCreator = true;
 
 	function handleCategoryToggle(category: string) {
 		selectedCategories = selectedCategories.includes(category)
@@ -88,42 +55,51 @@
 			: [...selectedCategories, category];
 	}
 
-	function handlePhotoSelect(event: Event) {
-		const target = event.target as HTMLInputElement;
-		if (target.files) {
-			facePhotos = Array.from(target.files);
+	async function handleSubmit() {
+		if (step === 1) {
+			if (emailError || usernameError || !username) return;
+			step = 2;
+			return;
 		}
-	}
 
-	async function submitCreatorApplication() {
-		applicationMessage = '';
-		if (!fullName || !username || !birthDate || !gender) {
-			applicationMessage = 'Lütfen tüm zorunlu alanları doldurun.';
-			return;
-		}
-		if (facePhotos.length < 3) {
-			applicationMessage = 'En az 3 yüz fotoğrafı yükleyin.';
-			return;
-		}
-		if (selectedCategories.length === 0) {
-			applicationMessage = 'En az bir kategori seçin.';
-			return;
-		}
-		submittingApplication = true;
+		if (passwordError || confirmError || !agreedToTerms || !ageConfirmed) return;
+
+		loading = true;
+		error = '';
+
 		try {
-			const formData = new FormData();
-			formData.append('full_name', fullName);
-			formData.append('username', username);
-			formData.append('birth_date', birthDate);
-			formData.append('gender', gender);
-			selectedCategories.forEach((c) => formData.append('categories', c));
-			facePhotos.forEach((file) => formData.append('face_photos', file));
-			await api.users.submitCreatorApplication(formData);
-			applicationMessage = 'Başvurunuz alındı.';
+			const result = await register({
+				username,
+				email,
+				password,
+				display_name: displayName || username,
+			});
+
+			if ((result as any)?.error) {
+				error = (result as any).error;
+				return;
+			}
+
+			// Otomatik giriş yapıldıysa ve üretici olmak istendiyse başvuruyu gönder.
+			if (wantCreator) {
+				try {
+					await api.users.applyCreator({
+						display_name: displayName || username,
+						bio: bio || 'Merhaba!',
+						subscription_price: Number(subscriptionPrice) || 0,
+						categories: selectedCategories,
+						age_confirmed: true,
+					});
+				} catch (e) {
+					// Üretici başvurusu başarısız olsa bile kayıt tamamlandı; sessiz geç.
+				}
+			}
+
+			goto('/');
 		} catch (err: any) {
-			applicationMessage = err.message || 'Başvuru gönderilemedi.';
+			error = err.message || 'Kayıt başarısız. Lütfen tekrar deneyin.';
 		} finally {
-			submittingApplication = false;
+			loading = false;
 		}
 	}
 
@@ -139,7 +115,7 @@
 <Card class="p-8">
 	<div class="text-center mb-8">
 		<a href="/" class="text-3xl font-bold text-primary">SadeceFanlar</a>
-		<p class="text-neutral-500 mt-2">Hesabınızı oluşturun</p>
+		<p class="text-neutral-500 mt-2">Anonim hesabını oluştur</p>
 	</div>
 
 	<!-- Progress -->
@@ -171,15 +147,6 @@
 
 		{#if step === 1}
 			<Input
-				type="email"
-				label="E-posta"
-				placeholder="siz@ornek.com"
-				bind:value={email}
-				error={emailError}
-				required
-			/>
-
-			<Input
 				label="Kullanıcı Adı"
 				placeholder="kullaniciadiniz"
 				bind:value={username}
@@ -188,12 +155,20 @@
 			/>
 
 			<Input
+				type="email"
+				label="E-posta (isteğe bağlı)"
+				placeholder="anonim kalmak için boş bırakın"
+				bind:value={email}
+				error={emailError}
+			/>
+
+			<Input
 				label="Görünen Ad (isteğe bağlı)"
-				placeholder="Adınız"
+				placeholder="Takma adınız"
 				bind:value={displayName}
 			/>
 
-			<Button type="submit" class="w-full" disabled={!email || !username || !!emailError || !!usernameError}>
+			<Button type="submit" class="w-full" disabled={!username || !!emailError || !!usernameError}>
 				Devam Et
 			</Button>
 		{:else}
@@ -216,17 +191,69 @@
 			/>
 
 			<label class="flex items-start gap-3">
-				<input
-					type="checkbox"
-					bind:checked={agreedToTerms}
-					class="mt-1 rounded border-neutral-300"
-				/>
+				<input type="checkbox" bind:checked={ageConfirmed} class="mt-1 rounded border-neutral-300" />
 				<span class="text-sm text-neutral-600 dark:text-neutral-400">
-					<a href="/terms" class="text-primary hover:underline">Kullanım Koşulları</a>'nı
-					ve
+					🔞 18 yaşından büyük olduğumu onaylıyorum
+				</span>
+			</label>
+
+			<label class="flex items-start gap-3">
+				<input type="checkbox" bind:checked={agreedToTerms} class="mt-1 rounded border-neutral-300" />
+				<span class="text-sm text-neutral-600 dark:text-neutral-400">
+					<a href="/terms" class="text-primary hover:underline">Kullanım Koşulları</a>'nı ve
 					<a href="/privacy" class="text-primary hover:underline">Gizlilik Politikası</a>'nı kabul ediyorum
 				</span>
 			</label>
+
+			<label class="flex items-start gap-3 rounded-lg border border-neutral-200 dark:border-neutral-700 p-3">
+				<input type="checkbox" bind:checked={wantCreator} class="mt-1 rounded border-neutral-300" />
+				<span class="text-sm text-neutral-700 dark:text-neutral-300">
+					İçerik üreticisi olmak istiyorum
+					<span class="block text-xs text-neutral-500 mt-0.5">
+						Gerçek isim, kimlik veya yüz fotoğrafı istenmez — takma adınla kazan.
+					</span>
+				</span>
+			</label>
+
+			{#if wantCreator}
+				<div class="space-y-3 rounded-lg bg-neutral-50 dark:bg-neutral-800/50 p-3">
+					<Input
+						label="Aylık abonelik fiyatı (USD)"
+						type="number"
+						bind:value={subscriptionPrice}
+					/>
+					<div>
+						<label for="creator-bio" class="mb-1 block text-sm font-medium text-neutral-700 dark:text-neutral-300">
+							Kısa tanıtım
+						</label>
+						<textarea
+							id="creator-bio"
+							bind:value={bio}
+							rows="2"
+							maxlength="1000"
+							placeholder="Profilinde görünecek kısa bir tanıtım"
+							class="w-full rounded-lg border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-3 py-2 text-sm"
+						/>
+					</div>
+					<div>
+						<span class="mb-2 block text-sm font-medium text-neutral-700 dark:text-neutral-300">
+							Kategoriler (isteğe bağlı)
+						</span>
+						<div class="grid grid-cols-2 gap-2">
+							{#each categoryOptions as category}
+								<label class="flex items-center gap-2 rounded-lg border border-neutral-200 dark:border-neutral-700 px-3 py-2 text-sm">
+									<input
+										type="checkbox"
+										checked={selectedCategories.includes(category)}
+										on:change={() => handleCategoryToggle(category)}
+									/>
+									<span>{category}</span>
+								</label>
+							{/each}
+						</div>
+					</div>
+				</div>
+			{/if}
 
 			<div class="flex gap-2">
 				<Button type="button" variant="outline" class="flex-1" on:click={goBack}>
@@ -235,100 +262,13 @@
 				<Button
 					type="submit"
 					class="flex-1"
-					disabled={loading || !password || !confirmPassword || !!passwordError || !!confirmError || !agreedToTerms}
+					disabled={loading || !password || !confirmPassword || !!passwordError || !!confirmError || !agreedToTerms || !ageConfirmed}
 				>
 					{loading ? 'Oluşturuluyor...' : 'Hesap Oluştur'}
 				</Button>
 			</div>
 		{/if}
 	</form>
-
-	<div class="mt-8 border-t border-neutral-200 dark:border-neutral-700 pt-6">
-		<button
-			type="button"
-			class="w-full text-left flex items-center justify-between text-sm font-semibold text-neutral-700 dark:text-neutral-300"
-			on:click={() => (showCreatorApplication = !showCreatorApplication)}
-		>
-			<span>İçerik Üreticisi Başvurusu</span>
-			<span>{showCreatorApplication ? '−' : '+'}</span>
-		</button>
-
-		{#if showCreatorApplication}
-			<div class="mt-4 space-y-4">
-				{#if applicationMessage}
-					<div class="p-3 rounded-lg text-sm bg-neutral-100 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-200">
-						{applicationMessage}
-					</div>
-				{/if}
-				<Input
-					label="İsim Soyisim"
-					placeholder="Ad Soyad"
-					bind:value={fullName}
-					required
-				/>
-				<Input
-					label="Kullanıcı Adı"
-					placeholder="kullaniciadi"
-					bind:value={username}
-					required
-				/>
-				<Input
-					label="Doğum Tarihi"
-					type="date"
-					bind:value={birthDate}
-					required
-				/>
-				<div>
-					<label class="mb-2 block text-sm font-medium text-neutral-700 dark:text-neutral-300">
-						Cinsiyet
-					</label>
-					<select
-						class="w-full rounded-lg border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-3 py-2 text-sm"
-						bind:value={gender}
-					>
-						<option value="" disabled>Seçiniz</option>
-						{#each genderOptions as option}
-							<option value={option}>{option}</option>
-						{/each}
-					</select>
-				</div>
-				<div>
-					<label class="mb-2 block text-sm font-medium text-neutral-700 dark:text-neutral-300">
-						Paylaşım Kategorileri (birden fazla seçilebilir)
-					</label>
-					<div class="grid grid-cols-2 gap-2">
-						{#each categoryOptions as category}
-							<label class="flex items-center gap-2 rounded-lg border border-neutral-200 dark:border-neutral-700 px-3 py-2 text-sm">
-								<input
-									type="checkbox"
-									checked={selectedCategories.includes(category)}
-									on:change={() => handleCategoryToggle(category)}
-								/>
-								<span>{category}</span>
-							</label>
-						{/each}
-					</div>
-				</div>
-				<div>
-					<label class="mb-2 block text-sm font-medium text-neutral-700 dark:text-neutral-300">
-						Yüz Fotoğrafları (en az 3 açıdan, aydınlık)
-					</label>
-					<input type="file" accept="image/*" multiple on:change={handlePhotoSelect} />
-					{#if facePhotos.length > 0}
-						<p class="mt-2 text-xs text-neutral-500">Seçilen: {facePhotos.length} dosya</p>
-					{/if}
-				</div>
-				<Button
-					type="button"
-					class="w-full"
-					disabled={submittingApplication}
-					on:click={submitCreatorApplication}
-				>
-					{submittingApplication ? 'Gönderiliyor...' : 'Başvuru Gönder'}
-				</Button>
-			</div>
-		{/if}
-	</div>
 
 	<p class="text-center text-sm text-neutral-500 mt-6">
 		Zaten hesabınız var mı?
@@ -337,7 +277,7 @@
 
 	<div class="mt-8 pt-6 border-t border-neutral-200 dark:border-neutral-700">
 		<p class="text-xs text-neutral-400 text-center">
-			🔒 Anonim kayıt desteklenir. Kripto ile ödeyin, kişisel veri gerekmez.
+			🔒 Anonim kayıt. Kripto ile ödeyin, kişisel veri gerekmez. E-posta isteğe bağlıdır.
 		</p>
 	</div>
 </Card>

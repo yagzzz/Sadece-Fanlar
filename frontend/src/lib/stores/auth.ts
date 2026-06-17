@@ -61,6 +61,12 @@ function createAuthStore() {
 				return { error: response.error };
 			}
 
+			// 2FA gerekiyorsa boş token gelir; token saklama, 2FA iste.
+			if ((response.data as any)?.requires_2fa || !response.data!.access_token) {
+				update((s) => ({ ...s, loading: false }));
+				return { requires2fa: true };
+			}
+
 			api.setToken(response.data!.access_token);
 			
 			// Store refresh token separately
@@ -93,11 +99,25 @@ function createAuthStore() {
 				username: payload.username,
 				email: payload.email,
 				password: payload.password,
+				display_name: payload.display_name,
 			});
 			
 			if (response.error) {
 				update((s) => ({ ...s, loading: false }));
 				return { error: response.error };
+			}
+
+			// Otomatik giriş: kayıt token döndürür, kullanıcıyı oturum açmış say.
+			if (response.data?.access_token) {
+				api.setToken(response.data.access_token);
+				if (response.data.refresh_token) {
+					localStorage.setItem('refresh_token', response.data.refresh_token);
+				}
+				const userResponse = await userApi.getMe();
+				if (userResponse.data) {
+					set({ user: userResponse.data as User, loading: false, initialized: true });
+					return { success: true, message: 'Kayıt başarılı!' };
+				}
 			}
 
 			update((s) => ({ ...s, loading: false }));
@@ -146,4 +166,7 @@ export const authStore = auth;
 // Derived stores
 export const isAuthenticated = derived(auth, ($auth) => !!$auth.user);
 export const isCreator = derived(auth, ($auth) => $auth.user?.is_creator ?? false);
-export const isVerified = derived(auth, ($auth) => $auth.user?.is_verified ?? false);
+export const isVerified = derived(
+	auth,
+	($auth) => $auth.user?.is_verified_creator ?? $auth.user?.is_verified ?? false
+);

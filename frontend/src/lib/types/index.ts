@@ -11,8 +11,10 @@ export interface User {
 	avatar_url?: string;
 	cover_url?: string;
 	is_creator: boolean;
-	is_verified: boolean;
+	is_verified?: boolean;
+	is_verified_creator?: boolean;
 	is_email_verified: boolean;
+	is_free_profile?: boolean;
 	is_following?: boolean;
 	is_subscribed?: boolean;
 	is_blocked?: boolean;

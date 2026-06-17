@@ -196,12 +196,13 @@ export function formatDuration(seconds: number): string {
 }
 
 // Check if password is strong
+// Not: Backend kuralıyla aynı (büyük/küçük harf + rakam). Özel karakter
+// zorunlu değildir; aksi halde backend'in kabul ettiği şifreler UI'da reddedilirdi.
 export function isStrongPassword(password: string): boolean {
 	if (password.length < 8) return false;
 	if (!/[A-Z]/.test(password)) return false;
 	if (!/[a-z]/.test(password)) return false;
 	if (!/[0-9]/.test(password)) return false;
-	if (!/[!@#$%^&*(),.?":{}|<>]/.test(password)) return false;
 	return true;
 }
 

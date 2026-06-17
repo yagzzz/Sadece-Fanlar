@@ -79,7 +79,8 @@
 
 <svelte:head>
 	<title>{user?.display_name || username} | SadeceFanlar</title>
-	<meta name="description" content={user?.bio || `Check out ${username}'s profile on SadeceFanlar`} />
+	<!-- GİZLİLİK: Üretici profilleri arama motorlarında indekslenmez. -->
+	<meta name="robots" content="noindex, nofollow" />
 </svelte:head>
 
 {#if loading}

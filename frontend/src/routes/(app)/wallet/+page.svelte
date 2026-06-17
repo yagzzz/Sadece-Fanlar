@@ -225,22 +225,14 @@
 							<div class="grid grid-cols-2 gap-2">
 								<button
 									type="button"
-									class="p-3 border-2 rounded-lg text-center transition-colors"
-									class:border-primary={withdrawCurrency === 'xmr'}
-									class:bg-primary/5={withdrawCurrency === 'xmr'}
-									class:border-neutral-200={withdrawCurrency !== 'xmr'}
-									class:dark:border-neutral-700={withdrawCurrency !== 'xmr'}
+									class="p-3 border-2 rounded-lg text-center transition-colors {withdrawCurrency === 'xmr' ? 'border-primary bg-primary/5' : 'border-neutral-200 dark:border-neutral-700'}"
 									on:click={() => (withdrawCurrency = 'xmr')}
 								>
 									🪙 Monero (XMR)
 								</button>
 								<button
 									type="button"
-									class="p-3 border-2 rounded-lg text-center transition-colors"
-									class:border-primary={withdrawCurrency === 'btc'}
-									class:bg-primary/5={withdrawCurrency === 'btc'}
-									class:border-neutral-200={withdrawCurrency !== 'btc'}
-									class:dark:border-neutral-700={withdrawCurrency !== 'btc'}
+									class="p-3 border-2 rounded-lg text-center transition-colors {withdrawCurrency === 'btc' ? 'border-primary bg-primary/5' : 'border-neutral-200 dark:border-neutral-700'}"
 									on:click={() => (withdrawCurrency = 'btc')}
 								>
 									₿ Bitcoin (BTC)

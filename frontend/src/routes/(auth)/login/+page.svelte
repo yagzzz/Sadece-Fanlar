@@ -14,12 +14,16 @@
 
 		try {
 			const result = await login({ username: identifier, password });
+			if ((result as any)?.requires2fa) {
+				error = 'Hesabınızda 2FA etkin. Lütfen kimlik doğrulayıcı uygulamanızdan giriş yapın.';
+				return;
+			}
 			if (result?.error) {
 				throw new Error(result.error);
 			}
 			goto('/');
 		} catch (err: any) {
-			error = err.message || 'Login failed. Please try again.';
+			error = err.message || 'Giriş başarısız. Lütfen tekrar deneyin.';
 		} finally {
 			loading = false;
 		}
@@ -80,22 +84,22 @@
 
 	<div class="mt-6 rounded-lg border border-neutral-200 dark:border-neutral-700 p-4">
 		<p class="text-sm font-semibold text-neutral-800 dark:text-neutral-200">
-			İçerik Üreticisi Başvurusu
+			İçerik Üreticisi misin?
 		</p>
 		<p class="mt-1 text-xs text-neutral-500">
-			Başvuru formu kayıt sayfasında. İsim, doğum tarihi, yüz fotoğrafları ve kategori seçimleri istenir.
+			Takma adınla saniyeler içinde başla. Gerçek isim, kimlik veya yüz fotoğrafı istenmez — yalnızca 18+ onayı.
 		</p>
 		<a
 			href="/register?creator=1"
 			class="mt-3 inline-flex w-full items-center justify-center rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white"
 		>
-			Başvuruya Başla
+			Üretici olarak kayıt ol
 		</a>
 	</div>
 
 	<div class="mt-8 pt-6 border-t border-neutral-200 dark:border-neutral-700">
 		<p class="text-xs text-neutral-400 text-center">
-			🔒 Gizliliğiniz korunmaktadır. Kişisel verilerinizi takip etmiyor veya saklamıyoruz.
+			🔒 Gizliliğiniz korunmaktadır. IP adresinizi loglamıyor, kişisel verilerinizi saklamıyoruz.
 		</p>
 	</div>
 </Card>

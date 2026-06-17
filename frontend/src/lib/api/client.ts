@@ -158,8 +158,17 @@ const fileToFormData = (file: File) => {
 
 // Auth API
 export const authApi = {
-	register: (data: { username: string; email: string; password: string }) =>
-		api.post('/auth/register', data),
+	register: (data: { username: string; email?: string; password: string; display_name?: string; referral_code?: string }) => {
+		// E-posta anonimlik için opsiyonel: boşsa hiç gönderme.
+		const payload: Record<string, unknown> = {
+			username: data.username,
+			password: data.password,
+		};
+		if (data.email && data.email.trim()) payload.email = data.email.trim();
+		if (data.display_name && data.display_name.trim()) payload.display_name = data.display_name.trim();
+		if (data.referral_code && data.referral_code.trim()) payload.referral_code = data.referral_code.trim();
+		return api.post<{ access_token: string; refresh_token: string }>('/auth/register', payload);
+	},
 	
 	login: (data: { username: string; password: string }) =>
 		api.post<{ access_token: string; refresh_token: string }>('/auth/login', data),
@@ -219,8 +228,14 @@ export const postApi = {
 	updateSettings: (data: any) => unwrap(userApi.updateProfile(data)),
 	uploadAvatar: (file: File) => unwrap(api.upload('/users/me/avatar', fileToFormData(file))),
 	uploadCover: (file: File) => unwrap(api.upload('/users/me/cover', fileToFormData(file))),
-	submitCreatorApplication: (formData: FormData) =>
-		unwrap(api.upload('/users/creator-application', formData)),
+	// Gizlilik öncelikli içerik üretici başvurusu - kimlik/yüz fotoğrafı İSTENMEZ.
+	applyCreator: (data: {
+		display_name: string;
+		bio: string;
+		subscription_price?: number;
+		categories?: string[];
+		age_confirmed: boolean;
+	}) => unwrap(api.post('/users/creator-application', data)),
 	explore: async (params: { q?: string }) => {
 		const q = params?.q ? encodeURIComponent(params.q) : '';
 		return unwrap(api.get(`/users/search?q=${q}`));
