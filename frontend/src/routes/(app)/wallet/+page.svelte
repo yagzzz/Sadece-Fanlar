@@ -1,5 +1,8 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import { goto } from '$app/navigation';
+	import { authStore } from '$lib/stores/auth';
+	import { waitForAuth } from '$lib/utils/auth';
 	import { api } from '$lib/api';
 	import { PaymentModal } from '$lib/components/features';
 	import { Button, Card, Input, Spinner, Tabs } from '$lib/components/ui';
@@ -18,10 +21,10 @@
 	let withdrawing = false;
 
 	const tabs = [
-		{ id: 'overview', label: '📊 Genel Bakış' },
-		{ id: 'deposit', label: '💰 Para Yatır' },
-		{ id: 'withdraw', label: '📤 Para Çek' },
-		{ id: 'history', label: '📜 Geçmiş' },
+		{ id: 'overview', label: 'Genel' },
+		{ id: 'deposit', label: 'Yatır' },
+		{ id: 'withdraw', label: 'Çek' },
+		{ id: 'history', label: 'Geçmiş' },
 	];
 
 	async function loadWallet() {
@@ -82,7 +85,12 @@
 		}
 	}
 
-	onMount(() => {
+	onMount(async () => {
+		await waitForAuth();
+		if (!$authStore.user) {
+			goto('/login');
+			return;
+		}
 		loadWallet();
 	});
 </script>
@@ -91,8 +99,8 @@
 	<title>Cüzdan | SadeceFanlar</title>
 </svelte:head>
 
-<div class="p-4">
-	<h1 class="text-2xl font-bold text-neutral-900 dark:text-white mb-6">Cüzdan</h1>
+<div>
+	<h1 class="text-xl font-semibold mb-6">Cüzdan</h1>
 
 	{#if loading}
 		<div class="flex items-center justify-center py-12">

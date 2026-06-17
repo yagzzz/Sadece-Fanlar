@@ -13,8 +13,8 @@
 		type: 'success' | 'error' | 'warning' | 'info';
 	}>>([]);
 
-	onMount(async () => {
-		await checkAuth();
+	onMount(() => {
+		checkAuth();
 	});
 
 	function removeToast(id: string) {
@@ -23,13 +23,17 @@
 </script>
 
 <svelte:head>
-	<title>SadeceFanlar - Anonymous Creator Platform</title>
-	<meta name="description" content="Support your favorite creators anonymously with cryptocurrency payments. Privacy-first content platform." />
+	<title>SadeceFanlar</title>
+	<meta name="description" content="Anonim içerik üretici platformu" />
 </svelte:head>
 
-<div class="min-h-screen bg-neutral-50 dark:bg-neutral-950">
+{#if $authStore.initialized}
 	<slot />
-</div>
+{:else}
+	<div class="min-h-screen flex items-center justify-center bg-white dark:bg-neutral-950">
+		<div class="h-8 w-8 rounded-full border-2 border-neutral-300 border-t-neutral-800 animate-spin"></div>
+	</div>
+{/if}
 
 <!-- Toast Container -->
 <div class="fixed top-4 right-4 z-50 space-y-2 pointer-events-none">

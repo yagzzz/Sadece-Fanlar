@@ -13,6 +13,7 @@ export interface User {
 	is_creator: boolean;
 	is_verified?: boolean;
 	is_verified_creator?: boolean;
+	role?: string;
 	is_email_verified: boolean;
 	is_free_profile?: boolean;
 	is_following?: boolean;

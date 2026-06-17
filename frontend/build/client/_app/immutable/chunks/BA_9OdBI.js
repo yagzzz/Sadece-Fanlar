@@ -1,0 +1,1 @@
+import{J as a}from"./XXpMwIwE.js";import{a as i}from"./DB7FITw8.js";function f(){return new Promise(t=>{if(a(i).initialized){t();return}const o=i.subscribe(n=>{n.initialized&&(o(),t())})})}function c(t){return(t==null?void 0:t.role)==="admin"||(t==null?void 0:t.role)==="moderator"}export{c as i,f as w};

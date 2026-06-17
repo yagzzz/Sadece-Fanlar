@@ -41,6 +41,7 @@ from app.schemas.common import PaginatedResponse, SuccessResponse
 from app.api.deps import get_current_user, get_admin_user
 from app.services.monero import monero_service
 from app.services.btcpay import btcpay_service
+from app.services.site_settings import get_platform_settings, update_platform_settings
 
 router = APIRouter(prefix="/admin", tags=["Admin"])
 
@@ -734,17 +735,8 @@ async def get_site_settings(
     admin: User = Depends(get_admin_user),
     db: AsyncSession = Depends(get_db)
 ):
-    """Get site settings"""
-    result = await db.execute(select(SiteSettings).limit(1))
-    settings_obj = result.scalar_one_or_none()
-    
-    if not settings_obj:
-        settings_obj = SiteSettings()
-        db.add(settings_obj)
-        await db.commit()
-        await db.refresh(settings_obj)
-    
-    return settings_obj
+    """Platform ayarlarını getir"""
+    return await get_platform_settings(db)
 
 
 @router.put("/settings")
@@ -753,29 +745,19 @@ async def update_site_settings(
     admin: User = Depends(get_admin_user),
     db: AsyncSession = Depends(get_db)
 ):
-    """Update site settings"""
-    result = await db.execute(select(SiteSettings).limit(1))
-    settings_obj = result.scalar_one_or_none()
-    
-    if not settings_obj:
-        settings_obj = SiteSettings()
-        db.add(settings_obj)
-    
-    for field, value in data.model_dump(exclude_unset=True).items():
-        setattr(settings_obj, field, value)
-    
-    await db.commit()
-    await db.refresh(settings_obj)
-    
+    """Platform ayarlarını güncelle"""
+    updates = data.model_dump(exclude_unset=True)
+    result = await update_platform_settings(db, updates)
+
     await log_admin_action(
         db=db,
         admin_id=admin.id,
         action=AdminAction.UPDATE_SETTINGS,
         target_type="settings",
-        details=data.model_dump(exclude_unset=True),
+        details=updates,
     )
-    
-    return settings_obj
+
+    return result
 
 
 # ============ ANNOUNCEMENTS ============

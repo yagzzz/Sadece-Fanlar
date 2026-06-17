@@ -1,183 +1,121 @@
 <script lang="ts">
 	import { page } from '$app/stores';
 	import { authStore, logout } from '$lib/stores/auth';
-	import { Avatar, Badge, Button, Dropdown } from '$lib/components/ui';
+	import { Avatar, Button } from '$lib/components/ui';
 	import { cn } from '$lib/utils';
+	import { isAdmin } from '$lib/utils/auth';
 
 	$: user = $authStore.user;
 	$: currentPath = $page.url.pathname;
 	$: isLanding = currentPath === '/' && !user;
 
 	const navItems = [
-		{ href: '/', label: 'Ana Sayfa', icon: '🏠' },
-		{ href: '/explore', label: 'Keşfet', icon: '🔍' },
-		{ href: '/messages', label: 'Mesajlar', icon: '💬', auth: true },
-		{ href: '/notifications', label: 'Bildirimler', icon: '🔔', auth: true },
+		{ href: '/', label: 'Ana Sayfa' },
+		{ href: '/explore', label: 'Keşfet' },
+		{ href: '/messages', label: 'Mesajlar', auth: true },
+		{ href: '/notifications', label: 'Bildirimler', auth: true },
+		{ href: '/wallet', label: 'Cüzdan', auth: true },
 	];
 
-	const userMenuItems = [
-		{ id: 'profile', label: 'Profilim', icon: '👤' },
-		{ id: 'settings', label: 'Ayarlar', icon: '⚙️' },
-		{ id: 'wallet', label: 'Cüzdan', icon: '💰' },
-		{ id: 'divider', label: '', divider: true },
-		{ id: 'logout', label: 'Çıkış Yap', icon: '🚪', danger: true },
-	];
-
-	function handleUserMenuSelect(e: CustomEvent<string>) {
-		switch (e.detail) {
-			case 'profile':
-				window.location.href = `/${user?.username}`;
-				break;
-			case 'settings':
-				window.location.href = '/settings';
-				break;
-			case 'wallet':
-				window.location.href = '/wallet';
-				break;
-			case 'logout':
-				logout();
-				window.location.href = '/';
-				break;
-		}
+	function navClass(href: string) {
+		const active = href === '/' ? currentPath === '/' : currentPath.startsWith(href);
+		return cn(
+			'block px-3 py-2 text-sm rounded-md transition-colors',
+			active
+				? 'bg-neutral-100 dark:bg-neutral-800 text-neutral-900 dark:text-white font-medium'
+				: 'text-neutral-600 dark:text-neutral-400 hover:bg-neutral-50 dark:hover:bg-neutral-800/60'
+		);
 	}
 </script>
 
-<div class="min-h-screen bg-neutral-50 dark:bg-neutral-950">
-	<!-- Desktop Sidebar -->
-	<aside class="hidden lg:fixed lg:inset-y-0 lg:left-0 lg:flex lg:w-64 lg:flex-col">
-		<div class="flex flex-col flex-grow border-r border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 pt-5 pb-4 overflow-y-auto">
-			<!-- Logo -->
-			<div class="flex items-center flex-shrink-0 px-6">
-				<a href="/" class="text-2xl font-bold text-primary">
-					SadeceFanlar
-				</a>
-			</div>
+<div class="min-h-screen bg-white dark:bg-neutral-950 text-neutral-900 dark:text-neutral-100">
+	<aside class="hidden lg:fixed lg:inset-y-0 lg:left-0 lg:flex lg:w-56 lg:flex-col border-r border-neutral-200 dark:border-neutral-800">
+		<div class="flex flex-col h-full px-4 py-5">
+			<a href="/" class="px-3 mb-8 text-lg font-semibold tracking-tight">SadeceFanlar</a>
 
-			<!-- Navigation -->
-			<nav class="mt-8 flex-1 px-4 space-y-1">
+			<nav class="flex-1 space-y-1">
 				{#each navItems as item}
 					{#if !item.auth || user}
-						<a
-							href={item.href}
-							class={cn(
-								'flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-colors',
-								currentPath === item.href
-									? 'bg-primary/10 text-primary'
-									: 'text-neutral-600 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-800'
-							)}
-						>
-							<span class="text-xl">{item.icon}</span>
-							<span>{item.label}</span>
-						</a>
+						<a href={item.href} class={navClass(item.href)}>{item.label}</a>
 					{/if}
 				{/each}
 
 				{#if user}
-					<a
-						href="/{user.username}"
-						class={cn(
-							'flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-colors',
-							currentPath === `/${user.username}`
-								? 'bg-primary/10 text-primary'
-								: 'text-neutral-600 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-800'
-						)}
-					>
-						<span class="text-xl">👤</span>
-						<span>Profil</span>
-					</a>
+					<a href="/{user.username}" class={navClass(`/${user.username}`)}>Profilim</a>
+					<a href="/settings" class={navClass('/settings')}>Ayarlar</a>
+					{#if isAdmin(user)}
+						<a href="/settings?tab=site" class={navClass('/settings?tab=site')}>Site Ayarları</a>
+					{/if}
 				{/if}
 			</nav>
 
-			<!-- User Section -->
-			<div class="px-4 pb-4">
+			<div class="pt-4 border-t border-neutral-200 dark:border-neutral-800">
 				{#if user}
-					<Button href="/new-post" class="w-full mb-4">
-						+ Yeni Gönderi
-					</Button>
-					<Dropdown items={userMenuItems} align="left" on:select={handleUserMenuSelect}>
-						<button
-							slot="trigger"
-							type="button"
-							class="flex items-center gap-3 w-full p-3 rounded-xl hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors"
-						>
-							<Avatar src={user.avatar_url} alt={user.display_name} size="sm" />
-							<div class="flex-1 text-left">
-								<p class="text-sm font-medium text-neutral-900 dark:text-white truncate">
-									{user.display_name}
-								</p>
-								<p class="text-xs text-neutral-500 truncate">@{user.username}</p>
-							</div>
-							<span class="text-neutral-400">⋮</span>
-						</button>
-					</Dropdown>
+					<div class="flex items-center gap-3 px-3 py-2 mb-3">
+						<Avatar src={user.avatar_url} alt={user.display_name} size="sm" />
+						<div class="min-w-0">
+							<p class="text-sm font-medium truncate">{user.display_name || user.username}</p>
+							<p class="text-xs text-neutral-500 truncate">@{user.username}</p>
+						</div>
+					</div>
+					{#if user.is_creator}
+						<Button href="/new-post" class="w-full mb-2" size="sm">Yeni gönderi</Button>
+					{/if}
+					<button
+						type="button"
+						class="w-full text-left px-3 py-2 text-sm text-neutral-500 hover:text-neutral-900 dark:hover:text-white"
+						on:click={() => { logout(); window.location.href = '/'; }}
+					>
+						Çıkış yap
+					</button>
 				{:else}
 					<div class="space-y-2">
-						<Button href="/login" class="w-full">Giriş Yap</Button>
-						<Button href="/register" variant="outline" class="w-full">Kayıt Ol</Button>
+						<Button href="/login" class="w-full" size="sm">Giriş yap</Button>
+						<Button href="/register" variant="outline" class="w-full" size="sm">Kayıt ol</Button>
 					</div>
 				{/if}
 			</div>
 		</div>
 	</aside>
 
-	<!-- Mobile Header -->
-	<header class="lg:hidden fixed top-0 inset-x-0 z-40 bg-white dark:bg-neutral-900 border-b border-neutral-200 dark:border-neutral-800">
-		<div class="flex items-center justify-between h-16 px-4">
-			<a href="/" class="text-xl font-bold text-primary">SF</a>
-			
+	<header class="lg:hidden sticky top-0 z-40 border-b border-neutral-200 dark:border-neutral-800 bg-white/95 dark:bg-neutral-950/95 backdrop-blur">
+		<div class="flex items-center justify-between h-14 px-4">
+			<a href="/" class="font-semibold">SadeceFanlar</a>
 			{#if user}
-				<Dropdown items={userMenuItems} on:select={handleUserMenuSelect}>
-					<button slot="trigger" type="button" class="p-1">
-						<Avatar src={user.avatar_url} alt={user.display_name} size="sm" />
-					</button>
-				</Dropdown>
+				<div class="flex items-center gap-3 text-sm">
+					<a href="/wallet" class="text-neutral-600 dark:text-neutral-300">Cüzdan</a>
+					<a href="/settings" class="text-neutral-600 dark:text-neutral-300">Ayarlar</a>
+				</div>
 			{:else}
-				<Button href="/login" size="sm">Giriş Yap</Button>
+				<Button href="/login" size="sm">Giriş</Button>
 			{/if}
 		</div>
 	</header>
 
-	<!-- Mobile Bottom Navigation -->
-	<nav class="lg:hidden fixed bottom-0 inset-x-0 z-40 bg-white dark:bg-neutral-900 border-t border-neutral-200 dark:border-neutral-800 safe-area-pb">
-		<div class="flex items-center justify-around h-16">
-			{#each navItems as item}
+	<nav class="lg:hidden fixed bottom-0 inset-x-0 z-40 border-t border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-950">
+		<div class="grid grid-cols-5 h-14 text-xs">
+			{#each navItems.slice(0, 4) as item}
 				{#if !item.auth || user}
-					<a
-						href={item.href}
-						class={cn(
-							'flex flex-col items-center gap-1 px-4 py-2 transition-colors',
-							currentPath === item.href
-								? 'text-primary'
-								: 'text-neutral-400'
-						)}
-					>
-						<span class="text-xl">{item.icon}</span>
-						<span class="text-xs">{item.label}</span>
+					<a href={item.href} class="flex flex-col items-center justify-center gap-0.5 text-neutral-500">
+						<span class={currentPath === item.href || (item.href !== '/' && currentPath.startsWith(item.href)) ? 'text-neutral-900 dark:text-white font-medium' : ''}>
+							{item.label}
+						</span>
 					</a>
 				{/if}
 			{/each}
 			{#if user}
-				<a
-					href="/new-post"
-					class="flex flex-col items-center gap-1 px-4 py-2 text-primary"
-				>
-					<span class="text-xl">➕</span>
-					<span class="text-xs">Post</span>
+				<a href="/wallet" class="flex flex-col items-center justify-center text-neutral-500">
+					<span class={currentPath.startsWith('/wallet') ? 'text-neutral-900 dark:text-white font-medium' : ''}>Cüzdan</span>
 				</a>
+			{:else}
+				<a href="/login" class="flex flex-col items-center justify-center text-neutral-500">Giriş</a>
 			{/if}
 		</div>
 	</nav>
 
-	<!-- Main Content -->
-	<main class="lg:pl-64 pt-16 lg:pt-0 pb-20 lg:pb-0">
-		<div class={isLanding ? 'w-full' : 'max-w-2xl mx-auto'}>
+	<main class="lg:pl-56 pt-0 pb-16 lg:pb-0">
+		<div class={isLanding ? 'w-full' : 'max-w-3xl mx-auto px-4 py-6'}>
 			<slot />
 		</div>
 	</main>
 </div>
-
-<style>
-	.safe-area-pb {
-		padding-bottom: env(safe-area-inset-bottom);
-	}
-</style>

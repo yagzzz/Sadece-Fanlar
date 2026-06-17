@@ -142,13 +142,15 @@ class AnnouncementResponse(BaseModel):
 class SiteSettingsUpdate(BaseModel):
     site_name: Optional[str] = None
     site_description: Optional[str] = None
-    platform_fee_percent: Optional[Decimal] = None
-    withdrawal_fee_percent: Optional[Decimal] = None
-    min_withdrawal_amount: Optional[Decimal] = None
-    min_subscription_price: Optional[Decimal] = None
-    max_subscription_price: Optional[Decimal] = None
+    platform_fee_percent: Optional[float] = None
+    withdrawal_fee_percent: Optional[float] = None
+    min_withdrawal_amount: Optional[float] = None
+    min_subscription_price: Optional[float] = None
+    max_subscription_price: Optional[float] = None
     maintenance_mode: Optional[bool] = None
     registration_enabled: Optional[bool] = None
     creator_verification_required: Optional[bool] = None
     monero_enabled: Optional[bool] = None
     btcpay_enabled: Optional[bool] = None
+    referral_bonus_percent: Optional[float] = None
+    max_upload_size_mb: Optional[int] = None

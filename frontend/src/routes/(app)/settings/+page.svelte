@@ -1,14 +1,43 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
-	import { authStore } from '$lib/stores/auth';
-	import { api } from '$lib/api';
-	import { Avatar, Button, Card, Input, Switch, Tabs, Textarea } from '$lib/components/ui';
+	import { page } from '$app/stores';
 	import { onMount } from 'svelte';
+	import { authStore } from '$lib/stores/auth';
+	import { api, adminApi } from '$lib/api';
+	import { Avatar, Button, Card, Input, Switch, Tabs, Textarea } from '$lib/components/ui';
+	import { waitForAuth, isAdmin } from '$lib/utils/auth';
 
 	let loading = false;
 	let activeTab = 'profile';
 
-	// Profile form
+	// Site settings (admin)
+	let siteName = '';
+	let siteDescription = '';
+	let platformFee = '';
+	let withdrawalFee = '';
+	let minWithdrawal = '';
+	let minSubPrice = '';
+	let maxSubPrice = '';
+	let referralBonus = '';
+	let maxUploadMb = '';
+	let maintenanceMode = false;
+	let registrationEnabled = true;
+	let creatorVerificationRequired = false;
+	let moneroEnabled = true;
+	let btcpayEnabled = true;
+
+	$: adminUser = isAdmin($authStore.user);
+	$: if ($page.url.searchParams.get('tab') === 'site' && adminUser) {
+		activeTab = 'site';
+	}
+
+	const tabs = [
+		{ id: 'profile', label: 'Profil' },
+		{ id: 'subscription', label: 'Abonelik' },
+		{ id: 'privacy', label: 'Gizlilik' },
+		{ id: 'notifications', label: 'Bildirimler' },
+		{ id: 'security', label: 'Güvenlik' },
+	];
 	let displayName = '';
 	let username = '';
 	let bio = '';
@@ -42,13 +71,55 @@
 	let confirmPassword = '';
 	let twoFactorEnabled = false;
 
-	const tabs = [
-		{ id: 'profile', label: '👤 Profil' },
-		{ id: 'subscription', label: '💰 Abonelik' },
-		{ id: 'privacy', label: '🔒 Gizlilik' },
-		{ id: 'notifications', label: '🔔 Bildirimler' },
-		{ id: 'security', label: '🛡️ Güvenlik' },
-	];
+	async function loadSiteSettings() {
+		if (!adminUser) return;
+		try {
+			const s: any = await adminApi.getSiteSettings();
+			siteName = s.site_name || '';
+			siteDescription = s.site_description || '';
+			platformFee = String(s.platform_fee_percent ?? '');
+			withdrawalFee = String(s.withdrawal_fee_percent ?? '');
+			minWithdrawal = String(s.min_withdrawal_amount ?? '');
+			minSubPrice = String(s.min_subscription_price ?? '');
+			maxSubPrice = String(s.max_subscription_price ?? '');
+			referralBonus = String(s.referral_bonus_percent ?? '');
+			maxUploadMb = String(s.max_upload_size_mb ?? '');
+			maintenanceMode = !!s.maintenance_mode;
+			registrationEnabled = s.registration_enabled !== false;
+			creatorVerificationRequired = !!s.creator_verification_required;
+			moneroEnabled = s.monero_enabled !== false;
+			btcpayEnabled = s.btcpay_enabled !== false;
+		} catch (err) {
+			console.error('Site ayarları yüklenemedi:', err);
+		}
+	}
+
+	async function saveSiteSettings() {
+		loading = true;
+		try {
+			await adminApi.updateSiteSettings({
+				site_name: siteName,
+				site_description: siteDescription,
+				platform_fee_percent: parseFloat(platformFee) || 0,
+				withdrawal_fee_percent: parseFloat(withdrawalFee) || 0,
+				min_withdrawal_amount: parseFloat(minWithdrawal) || 0,
+				min_subscription_price: parseFloat(minSubPrice) || 0,
+				max_subscription_price: parseFloat(maxSubPrice) || 0,
+				referral_bonus_percent: parseFloat(referralBonus) || 0,
+				max_upload_size_mb: parseInt(maxUploadMb) || 100,
+				maintenance_mode: maintenanceMode,
+				registration_enabled: registrationEnabled,
+				creator_verification_required: creatorVerificationRequired,
+				monero_enabled: moneroEnabled,
+				btcpay_enabled: btcpayEnabled,
+			});
+			alert('Site ayarları kaydedildi');
+		} catch (err: any) {
+			alert(err.message || 'Kaydedilemedi');
+		} finally {
+			loading = false;
+		}
+	}
 
 	async function loadSettings() {
 		if (!$authStore.user) return;
@@ -218,12 +289,14 @@
 		}
 	}
 
-	onMount(() => {
+	onMount(async () => {
+		await waitForAuth();
 		if (!$authStore.user) {
 			goto('/login');
 			return;
 		}
-		loadSettings();
+		await loadSettings();
+		if (adminUser) await loadSiteSettings();
 	});
 </script>
 
@@ -231,10 +304,10 @@
 	<title>Ayarlar | SadeceFanlar</title>
 </svelte:head>
 
-<div class="p-4">
-	<h1 class="text-2xl font-bold text-neutral-900 dark:text-white mb-6">Ayarlar</h1>
+<div>
+	<h1 class="text-xl font-semibold mb-6">Ayarlar</h1>
 
-	<Tabs {tabs} bind:activeTab>
+	<Tabs tabs={adminUser ? [...tabs, { id: 'site', label: 'Site Ayarları' }] : tabs} bind:activeTab>
 		{#if activeTab === 'profile'}
 			<Card class="p-6">
 				<form on:submit|preventDefault={saveProfile} class="space-y-6">
@@ -427,6 +500,33 @@
 						Hesabınızı sildiğinizde geri dönüş yoktur. Lütfen emin olun.
 					</p>
 					<Button variant="danger">Hesabı Sil</Button>
+				</Card>
+			</div>
+		{:else if activeTab === 'site' && adminUser}
+			<div class="space-y-4">
+				<Card class="p-6">
+					<h3 class="font-medium mb-4">Genel</h3>
+					<form on:submit|preventDefault={saveSiteSettings} class="space-y-4">
+						<Input label="Site adı" bind:value={siteName} />
+						<Textarea label="Site açıklaması" bind:value={siteDescription} rows={3} />
+						<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+							<Input label="Platform komisyonu (%)" type="number" bind:value={platformFee} />
+							<Input label="Çekim ücreti (%)" type="number" bind:value={withdrawalFee} />
+							<Input label="Min. çekim ($)" type="number" bind:value={minWithdrawal} />
+							<Input label="Min. abonelik ($)" type="number" bind:value={minSubPrice} />
+							<Input label="Max. abonelik ($)" type="number" bind:value={maxSubPrice} />
+							<Input label="Referans bonusu (%)" type="number" bind:value={referralBonus} />
+							<Input label="Max. yükleme (MB)" type="number" bind:value={maxUploadMb} />
+						</div>
+						<div class="space-y-3 pt-2">
+							<Switch label="Bakım modu" bind:checked={maintenanceMode} />
+							<Switch label="Kayıt açık" bind:checked={registrationEnabled} />
+							<Switch label="Üretici onayı zorunlu" bind:checked={creatorVerificationRequired} />
+							<Switch label="Monero ödemeleri" bind:checked={moneroEnabled} />
+							<Switch label="Bitcoin (BTCPay) ödemeleri" bind:checked={btcpayEnabled} />
+						</div>
+						<Button type="submit" disabled={loading}>Kaydet</Button>
+					</form>
 				</Card>
 			</div>
 		{/if}

@@ -12,6 +12,22 @@ interface ApiResponse<T> {
 	status: number;
 }
 
+function parseApiError(data: unknown): string {
+	if (!data || typeof data !== 'object') return 'Bir hata oluştu';
+	const detail = (data as { detail?: unknown }).detail;
+	if (typeof detail === 'string') return detail;
+	if (Array.isArray(detail)) {
+		return detail
+			.map((item) => {
+				if (typeof item === 'string') return item;
+				if (item && typeof item === 'object' && 'msg' in item) return String((item as { msg: string }).msg);
+				return 'Geçersiz istek';
+			})
+			.join(', ');
+	}
+	return 'Bir hata oluştu';
+}
+
 class ApiClient {
 	private token: string | null = null;
 	users?: any;
@@ -36,14 +52,40 @@ class ApiClient {
 	getToken(): string | null {
 		if (this.token) return this.token;
 		if (typeof window !== 'undefined') {
-			return localStorage.getItem('access_token');
+			const stored = localStorage.getItem('access_token');
+			if (stored) this.token = stored;
+			return stored;
 		}
 		return null;
 	}
 
+	private async refreshAccessToken(): Promise<boolean> {
+		if (typeof window === 'undefined') return false;
+		const refreshToken = localStorage.getItem('refresh_token');
+		if (!refreshToken) return false;
+
+		try {
+			const response = await fetch(`${API_BASE}/auth/refresh`, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ refresh_token: refreshToken }),
+			});
+			const data = await response.json().catch(() => null);
+			if (!response.ok || !data?.access_token) return false;
+			this.setToken(data.access_token);
+			if (data.refresh_token) {
+				localStorage.setItem('refresh_token', data.refresh_token);
+			}
+			return true;
+		} catch {
+			return false;
+		}
+	}
+
 	private async request<T>(
 		endpoint: string,
-		options: RequestInit = {}
+		options: RequestInit = {},
+		retry = true
 	): Promise<ApiResponse<T>> {
 		const token = this.getToken();
 		const headers: HeadersInit = {
@@ -63,15 +105,24 @@ class ApiClient {
 
 			const data = await response.json().catch(() => null);
 
+			if (response.status === 401 && retry && endpoint !== '/auth/refresh') {
+				const refreshed = await this.refreshAccessToken();
+				if (refreshed) {
+					return this.request<T>(endpoint, options, false);
+				}
+				this.setToken(null);
+				localStorage.removeItem('refresh_token');
+			}
+
 			if (!response.ok) {
 				return {
-					error: data?.detail || 'Bir hata oluştu',
+					error: parseApiError(data),
 					status: response.status,
 				};
 			}
 
 			return { data, status: response.status };
-		} catch (error) {
+		} catch {
 			return {
 				error: 'Sunucuya bağlanılamadı',
 				status: 0,
@@ -393,4 +444,10 @@ export const streamApi = {
 		unwrap(api.post('/auth/change-password', data)),
 	setup2FA: () => unwrap(api.post('/auth/2fa/setup')),
 	disable2FA: (data?: { code?: string }) => unwrap(api.post('/auth/2fa/disable', data ?? {})),
+};
+
+export const adminApi = {
+	getSiteSettings: () => unwrap(api.get('/admin/settings')),
+	updateSiteSettings: (data: Record<string, unknown>) => unwrap(api.put('/admin/settings', data)),
+	getStats: () => unwrap(api.get('/admin/stats')),
 };

@@ -82,7 +82,10 @@
 		}
 	}
 
-	onMount(() => {
+	import { waitForAuth } from '$lib/utils/auth';
+
+	onMount(async () => {
+		await waitForAuth();
 		if (!$authStore.user) {
 			goto('/login');
 		}
