@@ -146,9 +146,19 @@ class User(Base, SoftDeleteMixin):
         back_populates="creator",
         lazy="dynamic"
     )
-    notifications: Mapped[List["Notification"]] = relationship("Notification", back_populates="user", lazy="dynamic")
+    notifications: Mapped[List["Notification"]] = relationship(
+        "Notification",
+        back_populates="user",
+        foreign_keys="Notification.user_id",
+        lazy="dynamic",
+    )
     streams: Mapped[List["Stream"]] = relationship("Stream", back_populates="creator", lazy="dynamic")
-    verification: Mapped[Optional["UserVerification"]] = relationship("UserVerification", back_populates="user", uselist=False)
+    verification: Mapped[Optional["UserVerification"]] = relationship(
+        "UserVerification",
+        back_populates="user",
+        foreign_keys="UserVerification.user_id",
+        uselist=False,
+    )
     settings: Mapped[Optional["UserSettings"]] = relationship("UserSettings", back_populates="user", uselist=False)
     devices: Mapped[List["UserDevice"]] = relationship("UserDevice", back_populates="user", lazy="dynamic")
     

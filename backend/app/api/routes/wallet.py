@@ -318,7 +318,7 @@ async def request_withdrawal(
             detail="Geçersiz ödeme yöntemi"
         )
 
-    # Create withdrawal request
+    # Create withdrawal request (Withdrawal modelinde crypto_currency alanı yoktur)
     withdrawal = Withdrawal(
         user_id=current_user.id,
         amount=data.amount,
@@ -327,7 +327,6 @@ async def request_withdrawal(
         payment_method=data.payment_method,
         payout_address=data.payout_address,
         crypto_amount=crypto_amount,
-        crypto_currency=crypto_currency,
         exchange_rate=exchange_rate,
         status=WithdrawalStatus.PENDING,
     )

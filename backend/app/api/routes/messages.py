@@ -497,8 +497,11 @@ async def send_message(
     conversation = result.scalar_one_or_none()
     
     if not conversation:
-        # Create new conversation
-        conversation = Conversation()
+        # Create new conversation (user1_id/user2_id zorunludur)
+        conversation = Conversation(
+            user1_id=current_user.id,
+            user2_id=recipient.id,
+        )
         db.add(conversation)
         await db.flush()
         
@@ -690,7 +693,10 @@ async def send_mass_message(
         conversation = result.scalar_one_or_none()
         
         if not conversation:
-            conversation = Conversation()
+            conversation = Conversation(
+                user1_id=current_user.id,
+                user2_id=subscriber_id,
+            )
             db.add(conversation)
             await db.flush()
             
