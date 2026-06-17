@@ -111,6 +111,11 @@ class User(Base, SoftDeleteMixin):
     show_subscribers_count: Mapped[bool] = mapped_column(Boolean, default=True)
     allow_comments: Mapped[bool] = mapped_column(Boolean, default=True)
     geo_block_countries: Mapped[Optional[list]] = mapped_column(ARRAY(String), default=[])
+
+    # Mesajlaşma ayarları - kimler mesaj gönderebilir / ücretli mesaj fiyatı
+    # "everyone" | "subscribers" | "paid"
+    messages_restriction: Mapped[str] = mapped_column(String(20), default="everyone")
+    message_price: Mapped[Optional[float]] = mapped_column(Numeric(10, 2))
     
     # Referral
     referral_code: Mapped[Optional[str]] = mapped_column(String(20), unique=True)

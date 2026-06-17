@@ -20,6 +20,7 @@ from app.models.transaction import Transaction, TransactionType, TransactionStat
 from app.schemas.message import (
     MessageCreate,
     MessageResponse,
+    MessageUserResponse,
     ConversationResponse,
     ConversationListResponse,
     MassMessageCreate,
@@ -29,6 +30,50 @@ from app.schemas.common import PaginatedResponse, SuccessResponse
 from app.api.deps import get_current_user, get_current_user_ws
 
 router = APIRouter(prefix="/messages", tags=["Messages"])
+
+
+def _build_message_response(message: Message, sender: User) -> MessageResponse:
+    """Bir Message ORM nesnesini güvenli şekilde MessageResponse'a çevirir.
+
+    İlişkiler (sender/media) lazy yüklenmediğinden manuel kurulur; aksi halde
+    async ortamda lazy-load hatası (MissingGreenlet) oluşur.
+    """
+    media_items = []
+    try:
+        loaded_media = list(message.media) if message.media is not None else []
+    except Exception:
+        loaded_media = []
+    for m in loaded_media:
+        media_items.append({
+            "id": m.id,
+            "type": m.type.value if hasattr(m.type, "value") else m.type,
+            "url": m.url if message.is_unlocked else (m.blur_url or m.url),
+            "thumbnail_url": m.thumbnail_url,
+            "blur_url": m.blur_url,
+            "duration": m.duration,
+            "is_locked": not message.is_unlocked,
+        })
+
+    return MessageResponse(
+        id=message.id,
+        sender=MessageUserResponse(
+            id=sender.id,
+            username=sender.username,
+            display_name=sender.display_name,
+            avatar_url=sender.avatar_url,
+            is_verified_creator=sender.is_verified_creator,
+        ),
+        text=message.text,
+        media=media_items,
+        is_ppv=message.is_ppv,
+        ppv_price=float(message.ppv_price) if message.ppv_price else None,
+        is_unlocked=message.is_unlocked,
+        tip_amount=float(message.tip_amount) if message.tip_amount else None,
+        is_read=message.is_read,
+        read_at=message.read_at,
+        created_at=message.created_at,
+    )
+
 
 # WebSocket connection manager
 class ConnectionManager:
@@ -182,19 +227,24 @@ async def get_conversations(
                 )
                 other_user = user_result.scalar_one_or_none()
                 break
-        
-        items.append(ConversationListResponse(
+
+        if not other_user:
+            continue
+
+        items.append(ConversationResponse(
             id=conv.id,
-            other_user={
-                "id": other_user.id if other_user else None,
-                "username": other_user.username if other_user else "Unknown",
-                "display_name": other_user.display_name if other_user else "Unknown",
-                "avatar_url": other_user.avatar_url if other_user else None,
-            } if other_user else None,
-            last_message=conv.last_message_text,
+            other_user=MessageUserResponse(
+                id=other_user.id,
+                username=other_user.username,
+                display_name=other_user.display_name,
+                avatar_url=other_user.avatar_url,
+                is_verified_creator=other_user.is_verified_creator,
+            ),
             last_message_at=conv.last_message_at,
+            last_message_preview=conv.last_message_preview,
             unread_count=unread_count,
-            is_muted=False,  # TODO: Implement muting
+            is_blocked=False,
+            is_muted=False,
         ))
     
     return PaginatedResponse(
@@ -236,11 +286,42 @@ async def get_conversation(
         .options(selectinload(Conversation.participants))
     )
     conversation = result.scalar_one_or_none()
-    
+
+    # Diğer katılımcıyı bul
+    other_user = None
+    for p in conversation.participants:
+        if p.user_id != current_user.id:
+            user_result = await db.execute(select(User).where(User.id == p.user_id))
+            other_user = user_result.scalar_one_or_none()
+            break
+
+    unread_result = await db.execute(
+        select(func.count(Message.id)).where(
+            and_(
+                Message.conversation_id == conversation.id,
+                Message.sender_id != current_user.id,
+                Message.read_at.is_(None),
+            )
+        )
+    )
+    unread_count = unread_result.scalar() or 0
+
     return ConversationResponse(
         id=conversation.id,
-        created_at=conversation.created_at,
+        other_user=MessageUserResponse(
+            id=other_user.id,
+            username=other_user.username,
+            display_name=other_user.display_name,
+            avatar_url=other_user.avatar_url,
+            is_verified_creator=other_user.is_verified_creator,
+        ) if other_user else MessageUserResponse(
+            id=current_user.id, username="bilinmeyen", display_name=None, avatar_url=None,
+        ),
         last_message_at=conversation.last_message_at,
+        last_message_preview=conversation.last_message_preview,
+        unread_count=unread_count,
+        is_blocked=False,
+        is_muted=False,
     )
 
 
@@ -270,7 +351,9 @@ async def get_conversation_messages(
             detail="Konuşma bulunamadı"
         )
     
-    query = select(Message).where(Message.conversation_id == conversation_id)
+    query = select(Message).where(
+        and_(Message.conversation_id == conversation_id, Message.deleted_at.is_(None))
+    ).options(selectinload(Message.sender), selectinload(Message.media))
     
     if before:
         query = query.where(Message.created_at < before)
@@ -296,12 +379,12 @@ async def get_conversation_messages(
                 Message.read_at.is_(None)
             )
         )
-        .values(read_at=datetime.utcnow())
+        .values(read_at=datetime.utcnow(), is_read=True)
     )
     await db.commit()
     
     return PaginatedResponse(
-        items=[MessageResponse.model_validate(m) for m in messages],
+        items=[_build_message_response(m, m.sender) for m in messages],
         total=total,
         page=page,
         pages=(total + limit - 1) // limit,
@@ -433,7 +516,7 @@ async def send_message(
     message = Message(
         conversation_id=conversation.id,
         sender_id=current_user.id,
-        content=data.content,
+        text=data.text,
         is_ppv=data.is_ppv or False,
         ppv_price=data.ppv_price if data.is_ppv else None,
     )
@@ -441,21 +524,23 @@ async def send_message(
     
     # Update conversation
     conversation.last_message_at = datetime.utcnow()
-    conversation.last_message_text = data.content[:100] if data.content else "[Medya]"
+    conversation.last_message_preview = data.text[:100] if data.text else "[Medya]"
     
     await db.commit()
     await db.refresh(message)
-    
+
+    response = _build_message_response(message, current_user)
+
     # Send via WebSocket if recipient is connected
     await manager.send_personal_message(
         {
             "type": "new_message",
-            "message": MessageResponse.model_validate(message).model_dump(),
+            "message": response.model_dump(mode="json"),
         },
         str(recipient.id)
     )
     
-    return MessageResponse.model_validate(message)
+    return response
 
 
 @router.post("/conversations/{conversation_id}/messages", response_model=MessageResponse)
@@ -492,7 +577,7 @@ async def send_message_to_conversation(
     message = Message(
         conversation_id=conversation_id,
         sender_id=current_user.id,
-        content=data.content,
+        text=data.text,
         is_ppv=data.is_ppv or False,
         ppv_price=data.ppv_price if data.is_ppv else None,
     )
@@ -500,10 +585,12 @@ async def send_message_to_conversation(
     
     # Update conversation
     conversation.last_message_at = datetime.utcnow()
-    conversation.last_message_text = data.content[:100] if data.content else "[Medya]"
+    conversation.last_message_preview = data.text[:100] if data.text else "[Medya]"
     
     await db.commit()
     await db.refresh(message)
+
+    response = _build_message_response(message, current_user)
     
     # Notify other participants
     result = await db.execute(
@@ -520,12 +607,12 @@ async def send_message_to_conversation(
     await manager.broadcast_to_users(
         {
             "type": "new_message",
-            "message": MessageResponse.model_validate(message).model_dump(),
+            "message": response.model_dump(mode="json"),
         },
         other_participants
     )
     
-    return MessageResponse.model_validate(message)
+    return response
 
 
 # ============ MASS MESSAGES ============
@@ -558,12 +645,12 @@ async def send_mass_message(
     # Create mass message record
     mass_message = MassMessage(
         sender_id=current_user.id,
-        content=data.content,
+        text=data.text,
         is_ppv=data.is_ppv or False,
         ppv_price=data.ppv_price if data.is_ppv else None,
-        total_recipients=subscriber_count,
+        recipients_count=subscriber_count,
         sent_count=0,
-        status="pending",
+        is_sending=True,
     )
     db.add(mass_message)
     await db.commit()
@@ -620,16 +707,15 @@ async def send_mass_message(
         message = Message(
             conversation_id=conversation.id,
             sender_id=current_user.id,
-            content=data.content,
+            text=data.text,
             is_ppv=data.is_ppv or False,
             ppv_price=data.ppv_price if data.is_ppv else None,
-            mass_message_id=mass_message.id,
         )
         db.add(message)
         
         # Update conversation
         conversation.last_message_at = datetime.utcnow()
-        conversation.last_message_text = data.content[:100] if data.content else "[Medya]"
+        conversation.last_message_preview = data.text[:100] if data.text else "[Medya]"
         
         mass_message.sent_count += 1
         
@@ -638,7 +724,7 @@ async def send_mass_message(
             {
                 "type": "new_message",
                 "message": {
-                    "content": data.content,
+                    "text": data.text,
                     "sender_id": str(current_user.id),
                     "sender_username": current_user.username,
                     "is_ppv": data.is_ppv,
@@ -647,20 +733,12 @@ async def send_mass_message(
             str(subscriber_id)
         )
     
-    mass_message.status = "completed"
+    mass_message.is_sending = False
+    mass_message.completed_at = datetime.utcnow()
     await db.commit()
     await db.refresh(mass_message)
     
-    return MassMessageResponse(
-        id=mass_message.id,
-        content=mass_message.content,
-        is_ppv=mass_message.is_ppv,
-        ppv_price=float(mass_message.ppv_price) if mass_message.ppv_price else None,
-        total_recipients=mass_message.total_recipients,
-        sent_count=mass_message.sent_count,
-        status=mass_message.status,
-        created_at=mass_message.created_at,
-    )
+    return MassMessageResponse.model_validate(mass_message)
 
 
 @router.delete("/messages/{message_id}", response_model=SuccessResponse)
@@ -688,8 +766,8 @@ async def delete_message(
         )
     
     # Soft delete
-    message.is_deleted = True
-    message.content = "[Bu mesaj silindi]"
+    message.deleted_at = datetime.utcnow()
+    message.text = "[Bu mesaj silindi]"
     
     await db.commit()
     

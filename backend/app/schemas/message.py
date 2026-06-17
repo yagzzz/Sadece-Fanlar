@@ -35,6 +35,8 @@ class MessageUserResponse(BaseModel):
 
 class MessageCreate(BaseModel):
     """Create a message"""
+    # /messages/send için alıcı; /conversations/{id}/messages için yol parametresi kullanılır
+    recipient_id: Optional[UUID] = Field(None, description="Alıcı kullanıcı ID'si (/send için)")
     text: Optional[str] = Field(None, max_length=2000, description="Mesaj metni")
     media_ids: List[UUID] = Field(default=[], description="Medya ID'leri")
     
