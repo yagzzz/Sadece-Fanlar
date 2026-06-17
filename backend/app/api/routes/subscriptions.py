@@ -116,10 +116,9 @@ async def create_subscription_plan(
         name=data.name,
         description=data.description,
         price=data.price,
+        currency=data.currency,
         duration_months=data.duration_months,
-        features=data.features,
-        trial_days=data.trial_days,
-        discount_percent=data.discount_percent,
+        tier=data.tier,
         is_public=data.is_public,
     )
     
@@ -227,8 +226,12 @@ async def create_subscription_bundle(
         creator_id=current_user.id,
         name=data.name,
         description=data.description,
-        months=data.months,
-        discount_percent=data.discount_percent,
+        price=data.price,
+        original_price=data.original_price,
+        currency=data.currency,
+        duration_months=data.duration_months,
+        max_purchases=data.max_purchases,
+        expires_at=data.expires_at,
     )
     
     db.add(bundle)
@@ -282,130 +285,83 @@ async def subscribe_to_user(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Bu kullanıcıya zaten abonesiniz"
         )
-    
-    # Get plan or use default price
-    plan = None
-    if data.plan_id:
-        result = await db.execute(
-            select(SubscriptionPlan)
-            .where(
-                and_(
-                    SubscriptionPlan.id == data.plan_id,
-                    SubscriptionPlan.creator_id == creator.id,
-                    SubscriptionPlan.is_active == True
-                )
-            )
-        )
-        plan = result.scalar_one_or_none()
-        
-        if not plan:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Abonelik planı bulunamadı"
-            )
-    
-    # Calculate price
-    if plan:
-        base_price = float(plan.price)
-        months = plan.duration_months
-        discount = plan.discount_percent or 0
+
+    # Süreyi abonelik türünden hesapla
+    months_map = {"1_month": 1, "3_months": 3, "6_months": 6, "12_months": 12}
+    type_value = data.type.value if hasattr(data.type, "value") else str(data.type)
+    months = months_map.get(type_value, 1)
+
+    # Fiyatlandırma (içerik üreticisinin çok-aylık özel fiyatları varsa onları kullan)
+    base_price = float(creator.subscription_price) if creator.subscription_price else 0.0
+    if months == 3 and creator.subscription_price_3m:
+        total_price = float(creator.subscription_price_3m)
+    elif months == 6 and creator.subscription_price_6m:
+        total_price = float(creator.subscription_price_6m)
+    elif months == 12 and creator.subscription_price_12m:
+        total_price = float(creator.subscription_price_12m)
     else:
-        base_price = float(creator.subscription_price) if creator.subscription_price else 0
-        months = data.months or 1
-        discount = 0
-        
-        # Apply bundle discount if exists
-        if months > 1:
-            result = await db.execute(
-                select(SubscriptionBundle)
-                .where(
-                    and_(
-                        SubscriptionBundle.creator_id == creator.id,
-                        SubscriptionBundle.months == months,
-                        SubscriptionBundle.is_active == True
-                    )
-                )
-            )
-            bundle = result.scalar_one_or_none()
-            if bundle:
-                discount = bundle.discount_percent
-    
-    # Free subscription check
-    if base_price == 0:
+        total_price = base_price * months
+
+    far_future = datetime.utcnow() + timedelta(days=365 * 100)
+
+    # Ücretsiz/fiyatsız abonelik
+    if total_price <= 0:
         subscription = Subscription(
             subscriber_id=current_user.id,
             creator_id=creator.id,
-            plan_id=plan.id if plan else None,
             type=SubscriptionType.FREE,
             status=SubscriptionStatus.ACTIVE,
-            price=0,
-            started_at=datetime.utcnow(),
-            expires_at=None,  # Never expires for free
-            is_free=True,
+            amount=0,
+            payment_method="free",
+            starts_at=datetime.utcnow(),
+            expires_at=far_future,
         )
-        
         db.add(subscription)
-        
-        # Update counts
         creator.subscribers_count = (creator.subscribers_count or 0) + 1
         current_user.subscriptions_count = (current_user.subscriptions_count or 0) + 1
-        
         await db.commit()
         await db.refresh(subscription)
-        
         return SubscriptionResponse.model_validate(subscription)
-    
-    # Calculate final price
-    total_price = base_price * months
-    if discount > 0:
-        total_price = total_price * (1 - discount / 100)
-    
-    # Check wallet balance if paying from wallet
+
+    # Cüzdandan ödeme (anında)
     if data.payment_method == "wallet":
         result = await db.execute(
             select(Wallet).where(Wallet.user_id == current_user.id)
         )
         wallet = result.scalar_one_or_none()
-        
+
         if not wallet or wallet.balance < total_price:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Yetersiz bakiye"
             )
-        
-        # Process subscription immediately
+
         platform_fee = total_price * (settings.platform_fee_percent / 100)
         net_amount = total_price - platform_fee
-        
-        # Deduct from subscriber
+
         wallet.balance -= total_price
         wallet.total_spent += total_price
-        
-        # Credit creator
+
         result = await db.execute(
             select(Wallet).where(Wallet.user_id == creator.id)
         )
         creator_wallet = result.scalar_one_or_none()
-        
         if creator_wallet:
             creator_wallet.balance += net_amount
             creator_wallet.total_earned += net_amount
-        
-        # Create subscription
+
         subscription = Subscription(
             subscriber_id=current_user.id,
             creator_id=creator.id,
-            plan_id=plan.id if plan else None,
-            type=SubscriptionType.PAID if base_price > 0 else SubscriptionType.FREE,
+            type=SubscriptionType.PAID,
             status=SubscriptionStatus.ACTIVE,
-            price=total_price,
-            started_at=datetime.utcnow(),
+            amount=total_price,
+            payment_method="wallet",
+            starts_at=datetime.utcnow(),
             expires_at=datetime.utcnow() + timedelta(days=30 * months),
-            payment_method=PaymentMethod.WALLET,
         )
         db.add(subscription)
-        
-        # Create transaction
+
         transaction = Transaction(
             user_id=current_user.id,
             recipient_id=creator.id,
@@ -415,24 +371,22 @@ async def subscribe_to_user(
             fee=platform_fee,
             net_amount=net_amount,
             payment_method=PaymentMethod.WALLET,
-            subscription_months=months,
+            description=f"{months} aylık abonelik",
         )
         db.add(transaction)
-        
-        # Update counts
+
         creator.subscribers_count = (creator.subscribers_count or 0) + 1
         current_user.subscriptions_count = (current_user.subscriptions_count or 0) + 1
-        
+
         await db.commit()
         await db.refresh(subscription)
-        
         return SubscriptionResponse.model_validate(subscription)
-    
-    # Create crypto payment request
+
+    # Kripto ödeme isteği (Monero / BTCPay) - tamamlanınca abonelik aktifleşir
     if data.payment_method == "monero":
         crypto_amount, exchange_rate = await monero_service.calculate_xmr_amount(total_price)
         integrated_address, payment_id = await monero_service.create_integrated_address()
-        
+
         payment_request = PaymentRequest(
             user_id=current_user.id,
             type=PaymentRequestType.SUBSCRIPTION,
@@ -447,12 +401,9 @@ async def subscribe_to_user(
             monero_integrated_address=integrated_address,
             recipient_id=creator.id,
             expires_at=datetime.utcnow() + timedelta(hours=1),
-            metadata={
-                "months": months,
-                "plan_id": str(plan.id) if plan else None,
-            },
+            payment_metadata={"months": months},
         )
-        
+
     elif data.payment_method == "btcpay":
         invoice = await btcpay_service.create_invoice(
             amount=total_price,
@@ -463,12 +414,11 @@ async def subscribe_to_user(
                 "creator_id": str(creator.id),
                 "type": "subscription",
                 "months": months,
-                "plan_id": str(plan.id) if plan else None,
             },
         )
-        
+
         crypto_amount, exchange_rate = await btcpay_service.calculate_btc_amount(total_price)
-        
+
         payment_request = PaymentRequest(
             user_id=current_user.id,
             type=PaymentRequestType.SUBSCRIPTION,
@@ -482,27 +432,24 @@ async def subscribe_to_user(
             btcpay_checkout_url=invoice.get("checkoutLink"),
             recipient_id=creator.id,
             expires_at=datetime.utcnow() + timedelta(hours=1),
-            metadata={
-                "months": months,
-                "plan_id": str(plan.id) if plan else None,
-            },
+            payment_metadata={"months": months},
         )
     else:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Geçersiz ödeme yöntemi"
         )
-    
+
     db.add(payment_request)
     await db.commit()
     await db.refresh(payment_request)
-    
+
     return {
         "payment_required": True,
         "payment_request": {
             "id": str(payment_request.id),
             "amount_usd": float(payment_request.amount_usd),
-            "amount_crypto": float(payment_request.amount_crypto),
+            "amount_crypto": float(payment_request.amount_crypto) if payment_request.amount_crypto else None,
             "crypto_currency": payment_request.crypto_currency,
             "monero_integrated_address": payment_request.monero_integrated_address,
             "btcpay_checkout_url": payment_request.btcpay_checkout_url,
@@ -689,11 +636,12 @@ async def get_subscriber_stats(
     total_earnings = float(result.scalar() or 0)
     
     return SubscriberStats(
+        total_subscribers=active_count,
         active_subscribers=active_count,
         new_this_month=new_this_month,
-        expired_this_month=expired_this_month,
-        total_earnings=total_earnings,
-        churn_rate=expired_this_month / (active_count + expired_this_month) * 100 if (active_count + expired_this_month) > 0 else 0,
+        churned_this_month=expired_this_month,
+        monthly_revenue=0.0,
+        lifetime_revenue=total_earnings,
     )
 
 

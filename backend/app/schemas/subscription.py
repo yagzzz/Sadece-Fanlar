@@ -18,7 +18,10 @@ from enum import Enum
 
 
 class SubscriptionType(str, Enum):
-    """Abonelik süresi - Ne kadar süreyle abone olunacak"""
+    """Abonelik türü/süresi - model enum'u ile uyumlu"""
+    FREE = "free"               # Ücretsiz
+    PAID = "paid"               # Ücretli
+    TRIAL = "trial"             # Deneme
     ONE_MONTH = "1_month"       # 1 aylık
     THREE_MONTHS = "3_months"   # 3 aylık
     SIX_MONTHS = "6_months"     # 6 aylık
@@ -56,9 +59,10 @@ class SubscriptionResponse(BaseModel):
     # Taraflar
     subscriber_id: UUID                      # Abone olan
     creator_id: UUID                         # Abone olunan
-    creator_username: str                    # İçerik üreticisi kullanıcı adı
-    creator_display_name: Optional[str]      # İçerik üreticisi görünen ad
-    creator_avatar_url: Optional[str]        # İçerik üreticisi profil resmi
+    # İçerik üreticisi bilgileri (ORM nesnesinde düz alan olarak bulunmaz; opsiyonel)
+    creator_username: Optional[str] = None
+    creator_display_name: Optional[str] = None
+    creator_avatar_url: Optional[str] = None
     
     # Abonelik bilgileri
     type: SubscriptionType                   # Süre türü
@@ -66,17 +70,17 @@ class SubscriptionResponse(BaseModel):
     
     # Tarihler
     starts_at: datetime                      # Başlangıç
-    expires_at: datetime                     # Bitiş
-    cancelled_at: Optional[datetime]         # İptal tarihi
+    expires_at: Optional[datetime] = None    # Bitiş (ücretsiz abonelikte boş olabilir)
+    cancelled_at: Optional[datetime] = None  # İptal tarihi
     
     # Ödeme bilgileri
     amount: float                            # Ödenen tutar
-    currency: str                            # Para birimi
-    payment_method: str                      # Ödeme yöntemi
+    currency: str = "USD"                    # Para birimi
+    payment_method: Optional[str] = None     # Ödeme yöntemi
     
     # Diğer
-    auto_renew: bool                         # Otomatik yenileme
-    discount_percent: Optional[int]          # Uygulanan indirim
+    auto_renew: bool = False                 # Otomatik yenileme
+    discount_percent: Optional[int] = None   # Uygulanan indirim
     
     created_at: datetime
     

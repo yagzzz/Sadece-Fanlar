@@ -194,6 +194,9 @@ class SubscriptionBundle(Base):
     """
     __tablename__ = "subscription_bundles"
     
+    # Paketi oluşturan içerik üreticisi
+    creator_id: Mapped[Optional[uuid.UUID]] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"))
+    
     # Paket detayları
     name: Mapped[str] = mapped_column(String(100), nullable=False)         # Paket adı
     description: Mapped[Optional[str]] = mapped_column(String(500))        # Açıklama

@@ -347,6 +347,42 @@ async def _process_completed_payment(
             if post:
                 post.tips_total += amount
 
+        # Kripto ile ödenen abonelikte aboneliği aktifleştir
+        if payment_request.type == PaymentRequestType.SUBSCRIPTION:
+            from datetime import timedelta
+            from app.models.subscription import (
+                Subscription,
+                SubscriptionStatus,
+                SubscriptionType,
+            )
+
+            months = 1
+            if payment_request.payment_metadata:
+                try:
+                    months = int(payment_request.payment_metadata.get("months", 1) or 1)
+                except (TypeError, ValueError):
+                    months = 1
+
+            pm = payment_request.payment_method
+            subscription = Subscription(
+                subscriber_id=payment_request.user_id,
+                creator_id=payment_request.recipient_id,
+                type=SubscriptionType.PAID,
+                status=SubscriptionStatus.ACTIVE,
+                amount=amount,
+                payment_method=pm.value if hasattr(pm, "value") else str(pm),
+                starts_at=datetime.utcnow(),
+                expires_at=datetime.utcnow() + timedelta(days=30 * months),
+            )
+            db.add(subscription)
+
+            subscriber = await db.get(User, payment_request.user_id)
+            creator = await db.get(User, payment_request.recipient_id)
+            if creator:
+                creator.subscribers_count = (creator.subscribers_count or 0) + 1
+            if subscriber:
+                subscriber.subscriptions_count = (subscriber.subscriptions_count or 0) + 1
+
 
 @router.post("/tip", response_model=PaymentRequestResponse)
 async def send_tip(
