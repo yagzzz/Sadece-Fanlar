@@ -54,6 +54,29 @@ def generate_stream_key(user_id: UUID) -> str:
     return f"live_{random_part}_{hash_part}"
 
 
+def _build_stream_message_response(
+    message: StreamMessage,
+    sender: Optional[User],
+    creator_id: UUID,
+) -> StreamMessageResponse:
+    """StreamMessage ORM nesnesini güvenli şekilde yanıta çevirir.
+
+    Model alanı 'text' (şema 'content' bekler) ve 'is_creator' modelde yoktur;
+    bu yüzden yanıt manuel kurulur.
+    """
+    return StreamMessageResponse(
+        id=message.id,
+        stream_id=message.stream_id,
+        user_id=message.user_id,
+        content=message.text,
+        is_creator=message.user_id == creator_id,
+        created_at=message.created_at,
+        username=sender.username if sender else None,
+        display_name=sender.display_name if sender else None,
+        avatar_url=sender.avatar_url if sender else None,
+    )
+
+
 # ============ STREAM MANAGEMENT ============
 
 @router.get("/my", response_model=List[StreamResponse])
@@ -110,7 +133,7 @@ async def start_stream(
         status=StreamStatus.PENDING,
         stream_key=stream_key,
         price=data.price if data.access == StreamAccessType.PAID else None,
-        is_recorded=data.is_recorded or False,
+        save_vod=data.is_recorded if data.is_recorded is not None else True,
     )
     
     db.add(stream)
@@ -527,8 +550,8 @@ async def leave_stream(
         )
         stream = result.scalar_one_or_none()
         
-        if stream and stream.viewer_count:
-            stream.viewer_count = max(0, stream.viewer_count - 1)
+        if stream and stream.viewers_count:
+            stream.viewers_count = max(0, stream.viewers_count - 1)
         
         await db.commit()
     
@@ -545,7 +568,17 @@ async def get_stream_messages(
     db: AsyncSession = Depends(get_db)
 ):
     """Get stream chat messages"""
-    query = select(StreamMessage).where(StreamMessage.stream_id == stream_id)
+    from sqlalchemy.orm import selectinload
+
+    # Yayının sahibini bul (is_creator hesaplamak için)
+    stream_result = await db.execute(
+        select(LiveStream.creator_id).where(LiveStream.id == stream_id)
+    )
+    creator_id = stream_result.scalar_one_or_none()
+
+    query = select(StreamMessage).where(
+        and_(StreamMessage.stream_id == stream_id, StreamMessage.is_deleted == False)
+    ).options(selectinload(StreamMessage.user))
     
     if before:
         query = query.where(StreamMessage.created_at < before)
@@ -555,7 +588,7 @@ async def get_stream_messages(
     result = await db.execute(query)
     messages = list(reversed(result.scalars().all()))
     
-    return [StreamMessageResponse.model_validate(m) for m in messages]
+    return [_build_stream_message_response(m, m.user, creator_id) for m in messages]
 
 
 @router.post("/{stream_id}/messages", response_model=StreamMessageResponse)
@@ -586,15 +619,14 @@ async def send_stream_message(
     message = StreamMessage(
         stream_id=stream_id,
         user_id=current_user.id,
-        content=data.content,
-        is_creator=stream.creator_id == current_user.id,
+        text=data.content,
     )
     
     db.add(message)
     await db.commit()
     await db.refresh(message)
     
-    return StreamMessageResponse.model_validate(message)
+    return _build_stream_message_response(message, current_user, stream.creator_id)
 
 
 # ============ STREAM TIPS ============
@@ -623,19 +655,20 @@ async def send_stream_tip(
         select(Wallet).where(Wallet.user_id == current_user.id)
     )
     wallet = result.scalar_one_or_none()
-    
-    if not wallet or wallet.balance < data.amount:
+
+    amount = float(data.amount)
+    if not wallet or wallet.balance < amount:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Yetersiz bakiye"
         )
     
     # Process tip
-    platform_fee = data.amount * (settings.platform_fee_percent / 100)
-    net_amount = data.amount - platform_fee
+    platform_fee = amount * (settings.platform_fee_percent / 100)
+    net_amount = amount - platform_fee
     
-    wallet.balance -= data.amount
-    wallet.total_spent += data.amount
+    wallet.balance -= amount
+    wallet.total_spent += amount
     
     # Credit creator
     result = await db.execute(
@@ -651,13 +684,13 @@ async def send_stream_tip(
     tip = StreamTip(
         stream_id=stream_id,
         user_id=current_user.id,
-        amount=data.amount,
+        amount=amount,
         message=data.message,
     )
     db.add(tip)
     
     # Update stream totals
-    stream.tips_total = (stream.tips_total or 0) + data.amount
+    stream.tips_total = (stream.tips_total or 0) + amount
     
     # Create transaction
     transaction = Transaction(
@@ -669,8 +702,7 @@ async def send_stream_tip(
         fee=platform_fee,
         net_amount=net_amount,
         payment_method=PaymentMethod.WALLET,
-        reference_type="stream",
-        reference_id=stream_id,
+        stream_id=stream_id,
     )
     db.add(transaction)
     
@@ -725,7 +757,6 @@ async def schedule_stream(
         description=data.description,
         scheduled_at=data.scheduled_at,
         access=data.access or StreamAccessType.SUBSCRIBERS,
-        notify_subscribers=data.notify_subscribers or True,
     )
     
     db.add(scheduled)

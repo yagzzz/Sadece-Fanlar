@@ -79,7 +79,7 @@ class Post(Base, SoftDeleteMixin):
     likes_count: Mapped[int] = mapped_column(Integer, default=0)     # Beğeni sayısı
     comments_count: Mapped[int] = mapped_column(Integer, default=0)  # Yorum sayısı
     views_count: Mapped[int] = mapped_column(Integer, default=0)     # Görüntülenme sayısı
-    tips_total: Mapped[float] = mapped_column(Numeric(10, 2), default=0)  # Toplam bahşiş
+    tips_total: Mapped[float] = mapped_column(Numeric(10, 2, asdecimal=False), default=0)  # Toplam bahşiş
     
     # İlişkiler
     author: Mapped["User"] = relationship("User", back_populates="posts")  # Yazar

@@ -95,6 +95,10 @@ class Settings(BaseSettings):
     # Production'da Alembic migration'ları kullanılmalıdır.
     auto_create_tables: bool = True
     
+    # Streaming (RTMP/HLS)
+    stream_server_host: str = "localhost"
+    stream_key_secret: str = ""
+
     # Media
     max_upload_size_mb: int = 500
     allowed_image_types: List[str] = ["image/jpeg", "image/png", "image/gif", "image/webp"]

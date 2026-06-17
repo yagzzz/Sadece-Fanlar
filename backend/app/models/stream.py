@@ -90,7 +90,7 @@ class Stream(Base):
     viewers_count: Mapped[int] = mapped_column(Integer, default=0)   # Anlık izleyici sayısı
     peak_viewers: Mapped[int] = mapped_column(Integer, default=0)    # En yüksek anlık izleyici
     total_viewers: Mapped[int] = mapped_column(Integer, default=0)   # Toplam izleyici (benzersiz)
-    tips_total: Mapped[float] = mapped_column(Numeric(10, 2), default=0)  # Toplam bahşiş
+    tips_total: Mapped[float] = mapped_column(Numeric(10, 2, asdecimal=False), default=0)  # Toplam bahşiş
     duration: Mapped[Optional[int]] = mapped_column(Integer)  # Yayın süresi (saniye)
     
     # İlişkiler

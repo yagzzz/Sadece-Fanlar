@@ -136,13 +136,25 @@ class NotificationSettings(Base):
     email_subscription_expiring: Mapped[bool] = mapped_column(Boolean, default=True)
     email_withdrawal: Mapped[bool] = mapped_column(Boolean, default=True)
     email_announcements: Mapped[bool] = mapped_column(Boolean, default=True)
+    email_marketing: Mapped[bool] = mapped_column(Boolean, default=False)
     
     # Push bildirimleri
     push_new_subscriber: Mapped[bool] = mapped_column(Boolean, default=True)
     push_new_tip: Mapped[bool] = mapped_column(Boolean, default=True)
     push_new_message: Mapped[bool] = mapped_column(Boolean, default=True)
     push_new_comment: Mapped[bool] = mapped_column(Boolean, default=True)
+    push_new_like: Mapped[bool] = mapped_column(Boolean, default=True)
+    push_mentions: Mapped[bool] = mapped_column(Boolean, default=True)
     push_stream_started: Mapped[bool] = mapped_column(Boolean, default=True)
+
+    # Site içi (uygulama) bildirimleri
+    site_new_subscriber: Mapped[bool] = mapped_column(Boolean, default=True)
+    site_new_message: Mapped[bool] = mapped_column(Boolean, default=True)
+    site_new_tip: Mapped[bool] = mapped_column(Boolean, default=True)
+    site_new_comment: Mapped[bool] = mapped_column(Boolean, default=True)
+    site_new_like: Mapped[bool] = mapped_column(Boolean, default=True)
+    site_mentions: Mapped[bool] = mapped_column(Boolean, default=True)
+    site_new_follower: Mapped[bool] = mapped_column(Boolean, default=True)
     
     # İlişkiler
     user: Mapped["User"] = relationship("User")

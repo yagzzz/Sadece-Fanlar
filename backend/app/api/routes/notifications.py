@@ -265,27 +265,7 @@ async def get_notification_settings(
         await db.commit()
         await db.refresh(settings)
     
-    return NotificationSettingsResponse(
-        email_new_subscriber=settings.email_new_subscriber,
-        email_new_message=settings.email_new_message,
-        email_new_tip=settings.email_new_tip,
-        email_new_comment=settings.email_new_comment,
-        email_subscription_expiring=settings.email_subscription_expiring,
-        email_marketing=settings.email_marketing,
-        push_new_subscriber=settings.push_new_subscriber,
-        push_new_message=settings.push_new_message,
-        push_new_tip=settings.push_new_tip,
-        push_new_comment=settings.push_new_comment,
-        push_new_like=settings.push_new_like,
-        push_mentions=settings.push_mentions,
-        site_new_subscriber=settings.site_new_subscriber,
-        site_new_message=settings.site_new_message,
-        site_new_tip=settings.site_new_tip,
-        site_new_comment=settings.site_new_comment,
-        site_new_like=settings.site_new_like,
-        site_mentions=settings.site_mentions,
-        site_new_follower=settings.site_new_follower,
-    )
+    return NotificationSettingsResponse.model_validate(settings)
 
 
 @router.put("/settings", response_model=NotificationSettingsResponse)
@@ -352,17 +332,20 @@ async def create_notification(
         if not getattr(settings, setting_name, True):
             return None  # User has disabled this notification type
     
-    # Create notification
+    # Create notification (model alanı "message"; image_url alanı modelde yok,
+    # gerekirse data içinde taşınır)
+    if image_url:
+        data = {**(data or {}), "image_url": image_url}
+
     notification = Notification(
         user_id=user_id,
         type=type,
         title=title,
-        body=body,
+        message=body,
         data=data,
         actor_id=actor_id,
         reference_type=reference_type,
         reference_id=reference_id,
-        image_url=image_url,
     )
     
     db.add(notification)
@@ -373,7 +356,7 @@ async def create_notification(
     await notification_manager.send_notification(
         {
             "type": "notification",
-            "notification": NotificationResponse.model_validate(notification).model_dump(),
+            "notification": NotificationResponse.model_validate(notification).model_dump(mode="json"),
         },
         str(user_id)
     )

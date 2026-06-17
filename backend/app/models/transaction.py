@@ -88,14 +88,15 @@ class Wallet(Base):
     # Cüzdanın sahibi
     user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), unique=True)
     
-    # Bakiyeler
-    balance: Mapped[float] = mapped_column(Numeric(12, 2), default=0)          # Kullanılabilir bakiye
-    pending_balance: Mapped[float] = mapped_column(Numeric(12, 2), default=0)  # Bekleyen bakiye (onay bekliyor)
+    # Bakiyeler (asdecimal=False: kod genelinde float aritmetiği kullanıldığından
+    # DB'den float döner; Decimal/float karışımı kaynaklı TypeError önlenir)
+    balance: Mapped[float] = mapped_column(Numeric(12, 2, asdecimal=False), default=0)          # Kullanılabilir bakiye
+    pending_balance: Mapped[float] = mapped_column(Numeric(12, 2, asdecimal=False), default=0)  # Bekleyen bakiye (onay bekliyor)
     
     # İstatistikler
-    total_earned: Mapped[float] = mapped_column(Numeric(12, 2), default=0)     # Toplam kazanılan
-    total_withdrawn: Mapped[float] = mapped_column(Numeric(12, 2), default=0)  # Toplam çekilen
-    total_spent: Mapped[float] = mapped_column(Numeric(12, 2), default=0)      # Toplam harcanan
+    total_earned: Mapped[float] = mapped_column(Numeric(12, 2, asdecimal=False), default=0)     # Toplam kazanılan
+    total_withdrawn: Mapped[float] = mapped_column(Numeric(12, 2, asdecimal=False), default=0)  # Toplam çekilen
+    total_spent: Mapped[float] = mapped_column(Numeric(12, 2, asdecimal=False), default=0)      # Toplam harcanan
     
     # İlişkiler
     user: Mapped["User"] = relationship("User", back_populates="wallet")

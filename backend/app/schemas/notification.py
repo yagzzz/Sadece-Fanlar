@@ -13,10 +13,14 @@ class NotificationResponse(BaseModel):
     id: UUID
     type: NotificationType
     title: str
-    body: str
+    # Model alanı "message"; frontend hem message hem body okuyabilir.
+    message: str
+    body: Optional[str] = None
     image_url: Optional[str] = None
+    link: Optional[str] = None
     reference_type: Optional[str] = None
     reference_id: Optional[UUID] = None
+    is_read: bool = False
     read_at: Optional[datetime] = None
     created_at: datetime
     
