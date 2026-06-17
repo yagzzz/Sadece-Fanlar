@@ -45,8 +45,17 @@ async def get_current_user(
             detail="Token içinde kullanıcı bilgisi bulunamadı",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    
-    result = await db.execute(select(User).where(User.id == UUID(user_id)))
+
+    try:
+        user_uuid = UUID(str(user_id))
+    except (ValueError, TypeError):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Geçersiz token",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    result = await db.execute(select(User).where(User.id == user_uuid))
     user = result.scalar_one_or_none()
     
     if user is None:
@@ -89,8 +98,8 @@ async def get_current_user_optional(
         user_id = payload.get("sub")
         if user_id is None:
             return None
-        
-        result = await db.execute(select(User).where(User.id == UUID(user_id)))
+
+        result = await db.execute(select(User).where(User.id == UUID(str(user_id))))
         user = result.scalar_one_or_none()
         
         if user and user.is_active and user.deleted_at is None:

@@ -104,12 +104,11 @@ async def create_deposit(
         )
         
     elif data.payment_method == PaymentMethod.BTCPAY:
-        # Create BTCPay invoice
+        # Create BTCPay invoice (anonimlik için e-posta GÖNDERİLMEZ)
         invoice = await btcpay_service.create_invoice(
             amount=data.amount,
             currency="USD",
             order_id=f"deposit_{current_user.id}_{datetime.utcnow().timestamp()}",
-            buyer_email=current_user.email,
             metadata={"user_id": str(current_user.id), "type": "deposit"},
         )
         

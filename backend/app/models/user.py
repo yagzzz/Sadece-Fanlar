@@ -69,9 +69,12 @@ class User(Base, SoftDeleteMixin):
     
     # Kimlik doğrulama alanları - Authentication fields
     username: Mapped[str] = mapped_column(String(50), unique=True, index=True, nullable=False)
-    email: Mapped[str] = mapped_column(String(255), unique=True, index=True, nullable=False)
+    # E-posta ANONİMLİK için opsiyoneldir. Yalnızca kullanıcı isterse (parola
+    # kurtarma vb.) verilir. PostgreSQL'de unique index birden fazla NULL'a izin verir.
+    email: Mapped[Optional[str]] = mapped_column(String(255), unique=True, index=True, nullable=True)
     password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
     role: Mapped[UserRole] = mapped_column(SQLEnum(UserRole), default=UserRole.USER, nullable=False)
+    status: Mapped[UserStatus] = mapped_column(SQLEnum(UserStatus), default=UserStatus.ACTIVE, nullable=False)
     
     # Profile fields
     display_name: Mapped[Optional[str]] = mapped_column(String(100))
@@ -95,6 +98,13 @@ class User(Base, SoftDeleteMixin):
     is_email_verified: Mapped[bool] = mapped_column(Boolean, default=False)
     two_factor_enabled: Mapped[bool] = mapped_column(Boolean, default=False)
     two_factor_secret: Mapped[Optional[str]] = mapped_column(String(255))
+
+    # Moderasyon - Moderation
+    banned_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
+    ban_reason: Mapped[Optional[str]] = mapped_column(Text)
+
+    # İçerik üreticisinin yaş beyanı (18+) - yasal asgari, kimlik bilgisi toplanmaz
+    age_confirmed: Mapped[bool] = mapped_column(Boolean, default=False)
     
     # Privacy
     is_public_profile: Mapped[bool] = mapped_column(Boolean, default=False)

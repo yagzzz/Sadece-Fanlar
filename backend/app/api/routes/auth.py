@@ -86,15 +86,17 @@ async def register(
             detail="Bu kullanıcı adı zaten kullanılıyor"
         )
     
-    # E-posta kontrolü
-    result = await db.execute(
-        select(User).where(User.email == data.email.lower())
-    )
-    if result.scalar_one_or_none():
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Bu e-posta adresi zaten kullanılıyor"
+    # E-posta kontrolü (yalnızca verilmişse - e-posta opsiyoneldir/anonim)
+    normalized_email = data.email.lower() if data.email else None
+    if normalized_email:
+        result = await db.execute(
+            select(User).where(User.email == normalized_email)
         )
+        if result.scalar_one_or_none():
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Bu e-posta adresi zaten kullanılıyor"
+            )
     
     # Referans kodu kontrolü (varsa)
     referred_by = None
@@ -112,7 +114,7 @@ async def register(
     # Kullanıcı oluştur
     user = User(
         username=data.username.lower(),
-        email=data.email.lower(),
+        email=normalized_email,
         password_hash=hash_password(data.password),
         display_name=data.display_name or data.username,
         referral_code=generate_referral_code(),

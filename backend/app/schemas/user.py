@@ -27,7 +27,8 @@ class UserCreate(BaseModel):
     Username ve password doğrulaması yapılır.
     """
     username: str = Field(..., min_length=3, max_length=30, description="Kullanıcı adı")
-    email: EmailStr = Field(..., description="E-posta adresi")
+    # E-posta ANONİMLİK için opsiyoneldir. Boş bırakılırsa hesap tamamen anonimdir.
+    email: Optional[EmailStr] = Field(None, description="E-posta adresi (isteğe bağlı)")
     password: str = Field(..., min_length=8, max_length=100, description="Şifre")
     display_name: Optional[str] = Field(None, max_length=100, description="Görünen ad")
     referral_code: Optional[str] = Field(None, max_length=20, description="Referans kodu")
@@ -108,7 +109,7 @@ class UserResponse(BaseModel):
     """
     id: UUID
     username: str
-    email: str
+    email: Optional[str] = None
     display_name: Optional[str]
     bio: Optional[str]
     location: Optional[str]
@@ -216,10 +217,21 @@ class BecomeCreatorRequest(BaseModel):
     İçerik Üreticisi Olma İsteği
     ----------------------------
     Normal kullanıcının içerik üreticisi olması için gerekli bilgiler.
+    GİZLİLİK: Gerçek isim, kimlik belgesi veya yüz fotoğrafı İSTENMEZ.
+    Yasal asgari olarak yalnızca 18+ beyanı alınır.
     """
-    display_name: str = Field(..., max_length=100)           # Görünen ad (zorunlu)
+    display_name: str = Field(..., max_length=100)           # Görünen ad (takma ad olabilir)
     bio: str = Field(..., max_length=1000)                   # Biyografi (zorunlu)
     subscription_price: float = Field(..., ge=0, le=1000)    # Aylık abonelik fiyatı
+    categories: List[str] = Field(default_factory=list, max_length=20)  # İçerik kategorileri
+    age_confirmed: bool = Field(..., description="18 yaşından büyük olduğunuzu onaylayın")
+
+    @field_validator('age_confirmed')
+    @classmethod
+    def must_confirm_age(cls, v: bool) -> bool:
+        if not v:
+            raise ValueError('İçerik üreticisi olmak için 18+ olduğunuzu onaylamalısınız')
+        return v
 
 
 class TwoFactorSetup(BaseModel):

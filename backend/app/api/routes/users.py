@@ -5,7 +5,7 @@ from datetime import datetime
 from typing import Optional, List
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Query, Form
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, and_
 
@@ -26,23 +26,36 @@ from app.api.deps import get_current_user, get_current_user_optional
 router = APIRouter(prefix="/users", tags=["Users"])
 
 
-@router.post("/creator-application", response_model=SuccessResponse)
+@router.post("/creator-application", response_model=UserResponse)
 async def creator_application(
-    full_name: str = Form(...),
-    username: str = Form(...),
-    birth_date: str = Form(...),
-    gender: str = Form(...),
-    categories: List[str] = Form(...),
-    face_photos: List[UploadFile] = File(...),
+    data: BecomeCreatorRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
 ):
-    """Accept creator application details (public endpoint)."""
-    if len(face_photos) < 3:
+    """
+    İçerik Üreticisi Başvurusu (Gizlilik Öncelikli)
+    -----------------------------------------------
+    Kayıtlı kullanıcıyı içerik üreticisine dönüştürür.
+
+    GİZLİLİK: Gerçek isim, kimlik belgesi veya yüz fotoğrafı TOPLANMAZ.
+    Sadece takma ad (display_name), tanıtım ve 18+ yaş beyanı yeterlidir.
+    """
+    if current_user.is_creator:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="En az 3 yüz fotoğrafı gerekli",
+            detail="Zaten bir içerik üreticisisiniz",
         )
-    # For now, accept and return success without persistence
-    return SuccessResponse(message="Başvuru alındı")
+
+    current_user.is_creator = True
+    current_user.age_confirmed = True
+    current_user.display_name = data.display_name or current_user.display_name
+    current_user.bio = data.bio
+    current_user.subscription_price = data.subscription_price
+
+    await db.commit()
+    await db.refresh(current_user)
+
+    return current_user
 
 
 @router.get("/me", response_model=UserResponse)
@@ -133,8 +146,9 @@ async def become_creator(
             detail="Zaten bir içerik üreticisisiniz"
         )
     
-    # Update user
+    # Update user (18+ beyanı schema tarafından zorunlu kılınır)
     current_user.is_creator = True
+    current_user.age_confirmed = True
     current_user.display_name = data.display_name
     current_user.bio = data.bio
     current_user.subscription_price = data.subscription_price
@@ -145,7 +159,6 @@ async def become_creator(
     return current_user
 
 
-@router.get("/{username}", response_model=UserProfileResponse)
 async def get_user_profile(
     username: str,
     current_user: Optional[User] = Depends(get_current_user_optional),
@@ -386,3 +399,14 @@ async def unfollow_user(
     await db.commit()
     
     return SuccessResponse(message="Takip bırakıldı")
+
+
+# Dinamik "/{username}" rotası EN SONA kaydedilir; aksi halde "/search",
+# "/creator-application" gibi statik rotaları gölgeler (yakalar).
+router.add_api_route(
+    "/{username}",
+    get_user_profile,
+    methods=["GET"],
+    response_model=UserProfileResponse,
+    tags=["Users"],
+)

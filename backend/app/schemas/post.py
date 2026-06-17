@@ -196,6 +196,19 @@ class CommentResponse(BaseModel):
         from_attributes = True
 
 
+class CommentListResponse(BaseModel):
+    """
+    Yorum Listesi Yanıtı
+    --------------------
+    Sayfalanmış yorum listesi.
+    """
+    comments: List[CommentResponse]  # Yorumlar
+    total: int                       # Toplam yorum sayısı
+    page: int                        # Mevcut sayfa
+    per_page: int                    # Sayfa başına yorum
+    has_more: bool                   # Daha fazla var mı?
+
+
 class ReactionCreate(BaseModel):
     """
     Tepki/Beğeni Oluşturma Şeması
