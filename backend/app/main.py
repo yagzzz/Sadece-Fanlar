@@ -4,8 +4,8 @@ Sadece Fanlar - Main Application Entry Point
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request, status
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
-from fastapi.staticfiles import StaticFiles
+from fastapi.responses import JSONResponse, Response
+from starlette.middleware.base import BaseHTTPMiddleware
 from sqlalchemy.exc import IntegrityError
 import logging
 
@@ -51,6 +51,16 @@ async def lifespan(app: FastAPI):
         logger.info("Database connection successful")
     except Exception as e:
         logger.error(f"Database connection failed: {e}")
+
+    # Production dışında tabloları otomatik oluştur (geliştirme kolaylığı).
+    # Production'da Alembic migration'ları kullanın.
+    if settings.auto_create_tables and not settings.is_production:
+        try:
+            from app.core.database import init_db
+            await init_db()
+            logger.info("Database tables ensured (auto_create_tables)")
+        except Exception as e:
+            logger.error(f"Table creation failed: {e}")
     
     # Test Redis connection
     try:
@@ -80,13 +90,42 @@ app = FastAPI(
 )
 
 
-# CORS middleware
+class SecurityHeadersMiddleware(BaseHTTPMiddleware):
+    """
+    Güvenlik başlıkları ekler (clickjacking, MIME sniffing, bilgi sızıntısı vb.).
+    Adds hardening HTTP headers to every response.
+    """
+
+    async def dispatch(self, request: Request, call_next):
+        response: Response = await call_next(request)
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["X-Frame-Options"] = "DENY"
+        response.headers["Referrer-Policy"] = "no-referrer"
+        response.headers["Permissions-Policy"] = (
+            "geolocation=(), microphone=(), camera=(), payment=()"
+        )
+        response.headers["Cross-Origin-Opener-Policy"] = "same-origin"
+        response.headers["X-Robots-Tag"] = "noindex, nofollow"
+        # Sunucu/teknoloji bilgisini gizle (parmak izini zorlaştırır).
+        response.headers["Server"] = "sf"
+        if settings.is_production:
+            response.headers["Strict-Transport-Security"] = (
+                "max-age=63072000; includeSubDomains; preload"
+            )
+        return response
+
+
+app.add_middleware(SecurityHeadersMiddleware)
+
+
+# CORS middleware - yalnızca yapılandırılmış origin'lere ve gerekli method/header'lara izin ver.
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type", "Accept", "Origin", "X-Requested-With"],
+    max_age=600,
 )
 
 
@@ -165,15 +204,22 @@ app.include_router(admin.router, prefix="/api/v1")
 # SEO endpoints
 @app.get("/robots.txt")
 async def robots_txt():
-    """Robots.txt for SEO"""
+    """
+    Robots.txt - sadece tanıtım sayfaları indekslenebilir.
+    Profil, içerik, ödeme ve hesap sayfaları gizlilik için indekslenmez.
+    """
     content = """User-agent: *
-Allow: /
+Allow: /$
+Allow: /explore
+Allow: /register
+Allow: /login
 Disallow: /api/
 Disallow: /admin/
 Disallow: /messages/
 Disallow: /settings/
-
-Sitemap: https://sadecefanlar.com/sitemap.xml
+Disallow: /wallet/
+Disallow: /new-post
+Disallow: /notifications
 """
     return JSONResponse(content=content, media_type="text/plain")
 

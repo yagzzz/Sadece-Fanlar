@@ -9,12 +9,13 @@ services:
     container_name: sf_postgres
     environment:
       POSTGRES_USER: sadecefanlar
-      POSTGRES_PASSWORD: ${DB_PASSWORD:-changeme_secure_password}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD gerekli}
       POSTGRES_DB: sadecefanlar
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    # Sadece localhost'a bağla - veritabanı internete açılmaz.
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"
     restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U sadecefanlar"]
@@ -25,11 +26,12 @@ services:
   redis:
     image: redis:7-alpine
     container_name: sf_redis
-    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-redis_secure_password}
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:?REDIS_PASSWORD gerekli}
     volumes:
       - redis_data:/data
+    # Sadece localhost'a bağla - Redis internete açılmaz.
     ports:
-      - "6379:6379"
+      - "127.0.0.1:6379:6379"
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
@@ -46,26 +48,28 @@ services:
       dockerfile: Dockerfile
     container_name: sf_backend
     environment:
-      - DATABASE_URL=postgresql://sadecefanlar:${DB_PASSWORD:-changeme_secure_password}@postgres:5432/sadecefanlar
-      - REDIS_URL=redis://:${REDIS_PASSWORD:-redis_secure_password}@redis:6379/0
-      - SECRET_KEY=${SECRET_KEY:-your_super_secret_key_change_in_production}
+      - DATABASE_URL=postgresql+asyncpg://sadecefanlar:${DB_PASSWORD:?DB_PASSWORD gerekli}@postgres:5432/sadecefanlar
+      - REDIS_URL=redis://:${REDIS_PASSWORD:?REDIS_PASSWORD gerekli}@redis:6379/0
+      - SECRET_KEY=${SECRET_KEY:?SECRET_KEY gerekli - openssl rand -hex 32}
       - BTCPAY_URL=${BTCPAY_URL:-http://btcpay:49392}
       - BTCPAY_API_KEY=${BTCPAY_API_KEY}
       - BTCPAY_STORE_ID=${BTCPAY_STORE_ID}
+      - BTCPAY_WEBHOOK_SECRET=${BTCPAY_WEBHOOK_SECRET}
       - MONERO_WALLET_RPC_URL=${MONERO_WALLET_RPC_URL:-http://monero-wallet:18083}
       - MONERO_WALLET_RPC_USER=${MONERO_WALLET_RPC_USER:-rpc_user}
-      - MONERO_WALLET_RPC_PASSWORD=${MONERO_WALLET_RPC_PASSWORD:-rpc_password}
+      - MONERO_WALLET_RPC_PASSWORD=${MONERO_WALLET_RPC_PASSWORD:?MONERO_WALLET_RPC_PASSWORD gerekli}
       - MINIO_ENDPOINT=${MINIO_ENDPOINT:-minio:9000}
       - MINIO_ACCESS_KEY=${MINIO_ACCESS_KEY:-minioadmin}
-      - MINIO_SECRET_KEY=${MINIO_SECRET_KEY:-minioadmin}
+      - MINIO_SECRET_KEY=${MINIO_SECRET_KEY:?MINIO_SECRET_KEY gerekli}
       - MINIO_BUCKET=${MINIO_BUCKET:-sadecefanlar}
       - CORS_ORIGINS=${CORS_ORIGINS:-http://localhost:3000,http://localhost:5173}
       - ENVIRONMENT=${ENVIRONMENT:-development}
     volumes:
       - ./backend:/app
       - media_data:/app/media
+    # Sadece localhost'a bağla - dışarıya yalnızca nginx üzerinden erişilir.
     ports:
-      - "8000:8000"
+      - "127.0.0.1:8000:8000"
     depends_on:
       postgres:
         condition: service_healthy
@@ -83,15 +87,15 @@ services:
       dockerfile: Dockerfile
     container_name: sf_celery_worker
     environment:
-      - DATABASE_URL=postgresql://sadecefanlar:${DB_PASSWORD:-changeme_secure_password}@postgres:5432/sadecefanlar
-      - REDIS_URL=redis://:${REDIS_PASSWORD:-redis_secure_password}@redis:6379/0
-      - SECRET_KEY=${SECRET_KEY:-your_super_secret_key_change_in_production}
+      - DATABASE_URL=postgresql+asyncpg://sadecefanlar:${DB_PASSWORD:?DB_PASSWORD gerekli}@postgres:5432/sadecefanlar
+      - REDIS_URL=redis://:${REDIS_PASSWORD:?REDIS_PASSWORD gerekli}@redis:6379/0
+      - SECRET_KEY=${SECRET_KEY:?SECRET_KEY gerekli - openssl rand -hex 32}
       - BTCPAY_URL=${BTCPAY_URL:-http://btcpay:49392}
       - BTCPAY_API_KEY=${BTCPAY_API_KEY}
       - MONERO_WALLET_RPC_URL=${MONERO_WALLET_RPC_URL:-http://monero-wallet:18083}
       - MINIO_ENDPOINT=${MINIO_ENDPOINT:-minio:9000}
       - MINIO_ACCESS_KEY=${MINIO_ACCESS_KEY:-minioadmin}
-      - MINIO_SECRET_KEY=${MINIO_SECRET_KEY:-minioadmin}
+      - MINIO_SECRET_KEY=${MINIO_SECRET_KEY:?MINIO_SECRET_KEY gerekli}
     volumes:
       - ./backend:/app
       - media_data:/app/media
@@ -107,8 +111,8 @@ services:
       dockerfile: Dockerfile
     container_name: sf_celery_beat
     environment:
-      - DATABASE_URL=postgresql://sadecefanlar:${DB_PASSWORD:-changeme_secure_password}@postgres:5432/sadecefanlar
-      - REDIS_URL=redis://:${REDIS_PASSWORD:-redis_secure_password}@redis:6379/0
+      - DATABASE_URL=postgresql+asyncpg://sadecefanlar:${DB_PASSWORD:?DB_PASSWORD gerekli}@postgres:5432/sadecefanlar
+      - REDIS_URL=redis://:${REDIS_PASSWORD:?REDIS_PASSWORD gerekli}@redis:6379/0
     volumes:
       - ./backend:/app
     depends_on:
@@ -132,8 +136,9 @@ services:
     volumes:
       - ./frontend:/app
       - /app/node_modules
+    # Sadece localhost'a bağla - dışarıya yalnızca nginx üzerinden erişilir.
     ports:
-      - "3000:3000"
+      - "127.0.0.1:3000:3000"
     depends_on:
       - backend
     restart: unless-stopped
@@ -146,12 +151,13 @@ services:
     container_name: sf_minio
     environment:
       MINIO_ROOT_USER: ${MINIO_ACCESS_KEY:-minioadmin}
-      MINIO_ROOT_PASSWORD: ${MINIO_SECRET_KEY:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_SECRET_KEY:?MINIO_SECRET_KEY gerekli}
     volumes:
       - minio_data:/data
+    # Sadece localhost'a bağla - obje depolama internete açılmaz.
     ports:
-      - "9000:9000"
-      - "9001:9001"
+      - "127.0.0.1:9000:9000"
+      - "127.0.0.1:9001:9001"
     command: server /data --console-address ":9001"
     restart: unless-stopped
     healthcheck:
@@ -167,7 +173,7 @@ services:
     image: btcpayserver/btcpayserver:latest
     container_name: sf_btcpay
     environment:
-      BTCPAY_POSTGRES: Host=postgres;Database=btcpay;Username=sadecefanlar;Password=${DB_PASSWORD:-changeme_secure_password}
+      BTCPAY_POSTGRES: Host=postgres;Database=btcpay;Username=sadecefanlar;Password=${DB_PASSWORD:?DB_PASSWORD gerekli}
       BTCPAY_NETWORK: ${BTCPAY_NETWORK:-mainnet}
       BTCPAY_BIND: 0.0.0.0:49392
       BTCPAY_ROOTPATH: /
@@ -175,8 +181,9 @@ services:
       BTCPAY_DEBUGLOG: btcpay.log
     volumes:
       - btcpay_data:/datadir
+    # Sadece localhost'a bağla - nginx üzerinden /btcpay/ ile erişilir.
     ports:
-      - "49392:49392"
+      - "127.0.0.1:49392:49392"
     depends_on:
       - postgres
     restart: unless-stopped
@@ -191,9 +198,10 @@ services:
     container_name: sf_monerod
     volumes:
       - monero_data:/home/monero/.bitmonero
+    # P2P portu (18080) dışarı açık kalabilir; RPC (18081) sadece localhost.
     ports:
       - "18080:18080"
-      - "18081:18081"
+      - "127.0.0.1:18081:18081"
     command: >
       monerod
       --non-interactive
@@ -212,11 +220,12 @@ services:
     container_name: sf_monero_wallet
     volumes:
       - monero_wallet_data:/home/monero/wallet
+    # Cüzdan RPC'si yalnızca localhost - asla internete açılmamalı.
     ports:
-      - "18083:18083"
+      - "127.0.0.1:18083:18083"
     environment:
       WALLET_RPC_USER: ${MONERO_WALLET_RPC_USER:-rpc_user}
-      WALLET_RPC_PASS: ${MONERO_WALLET_RPC_PASSWORD:-rpc_password}
+      WALLET_RPC_PASS: ${MONERO_WALLET_RPC_PASSWORD:?MONERO_WALLET_RPC_PASSWORD gerekli}
     command: >
       monero-wallet-rpc
       --non-interactive
@@ -225,7 +234,7 @@ services:
       --confirm-external-bind
       --daemon-host=monerod
       --daemon-port=18081
-      --rpc-login=${MONERO_WALLET_RPC_USER:-rpc_user}:${MONERO_WALLET_RPC_PASSWORD:-rpc_password}
+      --rpc-login=${MONERO_WALLET_RPC_USER:-rpc_user}:${MONERO_WALLET_RPC_PASSWORD:?MONERO_WALLET_RPC_PASSWORD gerekli}
       --wallet-dir=/home/monero/wallet
       --disable-rpc-login=false
     depends_on:
@@ -259,11 +268,11 @@ services:
       dockerfile: Dockerfile.media
     container_name: sf_media_processor
     environment:
-      - DATABASE_URL=postgresql://sadecefanlar:${DB_PASSWORD:-changeme_secure_password}@postgres:5432/sadecefanlar
-      - REDIS_URL=redis://:${REDIS_PASSWORD:-redis_secure_password}@redis:6379/0
+      - DATABASE_URL=postgresql+asyncpg://sadecefanlar:${DB_PASSWORD:?DB_PASSWORD gerekli}@postgres:5432/sadecefanlar
+      - REDIS_URL=redis://:${REDIS_PASSWORD:?REDIS_PASSWORD gerekli}@redis:6379/0
       - MINIO_ENDPOINT=${MINIO_ENDPOINT:-minio:9000}
       - MINIO_ACCESS_KEY=${MINIO_ACCESS_KEY:-minioadmin}
-      - MINIO_SECRET_KEY=${MINIO_SECRET_KEY:-minioadmin}
+      - MINIO_SECRET_KEY=${MINIO_SECRET_KEY:?MINIO_SECRET_KEY gerekli}
     volumes:
       - ./backend:/app
       - media_data:/app/media

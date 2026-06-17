@@ -202,16 +202,29 @@ class BTCPayService:
         return round(btc_amount, 8), rate
     
     def verify_webhook_signature(self, body: bytes, signature: str) -> bool:
-        """Verify BTCPay webhook signature"""
+        """
+        BTCPay webhook imzasını doğrular.
+
+        GÜVENLİK: Secret yapılandırılmamışsa imza doğrulanamaz; bu durumda
+        webhook REDDEDİLİR (fail-closed). Aksi halde saldırgan sahte
+        "ödeme tamamlandı" bildirimi göndererek cüzdanına bakiye yükleyebilir.
+        """
         if not self.webhook_secret:
-            return True  # Skip verification if no secret configured
-        
+            import logging
+            logging.getLogger(__name__).error(
+                "BTCPAY_WEBHOOK_SECRET ayarlı değil; webhook reddedildi."
+            )
+            return False
+
+        if not signature:
+            return False
+
         expected = hmac.new(
             self.webhook_secret.encode(),
             body,
             hashlib.sha256,
         ).hexdigest()
-        
+
         return hmac.compare_digest(f"sha256={expected}", signature)
     
     async def get_supported_payment_methods(self) -> list:
