@@ -147,6 +147,25 @@ services:
   # ============================================
   # OBJECT STORAGE (S3-compatible)
   # ============================================
+  # SEÇENEK A — Yerel MinIO (varsayılan, küçük başlangıç için)
+  #   Medya bu VDS üzerinde tutulur. Disk dolunca harici sunucuya geç.
+  #
+  # SEÇENEK B — Harici S3-uyumlu depolama (nonKYC, ucuz, tavsiye)
+  #   Bu servis bloğunu tamamen kaldır (yorum satırı yap veya sil).
+  #   .env içinde şunları harici sunucu bilgileriyle doldur:
+  #     MINIO_ENDPOINT=depolamaadresi.com        (https gerekmez, sadece host:port)
+  #     MINIO_ACCESS_KEY=harici_access_key
+  #     MINIO_SECRET_KEY=harici_secret_key
+  #     MINIO_PUBLIC_URL=https://depolamaadresi.com
+  #     MINIO_USE_SSL=true
+  #   Backend doğrudan bu sunucuya bağlanır, buradaki MinIO container'ı gerekmez.
+  #
+  # S3-uyumlu nonKYC depolama seçenekleri:
+  #   https://www.storj.io         (anonim kayıt, Tardigrade/S3)
+  #   https://filebase.com         (IPFS tabanlı, S3 API)
+  #   https://wasabi.com           (ucuz, S3)
+  #   Kendi Hetzner/OVH VPS + MinIO kombinasyonu
+  # ============================================
   minio:
     image: minio/minio:latest
     container_name: sf_minio
@@ -192,30 +211,12 @@ services:
       - postgres
 
   # ============================================
-  # MONERO DAEMON & WALLET RPC
+  # MONERO WALLET RPC (uzak node, yerel senkron yok)
+  # monerod burada çalışmaz; herkese açık güvenilir bir node kullanılır.
+  # Disk tasarrufu: ~50 GB (pruned blockchain yok)
+  # Tercih ettiğin node: MONERO_DAEMON_HOST / MONERO_DAEMON_PORT env ile değiştir.
+  # Güvenilir açık node listesi: https://moneroworld.com/#nodes
   # ============================================
-  monerod:
-    image: sethsimmons/simple-monerod:latest
-    container_name: sf_monerod
-    volumes:
-      - monero_data:/home/monero/.bitmonero
-    # P2P portu (18080) dışarı açık kalabilir; RPC (18081) sadece localhost.
-    ports:
-      - "18080:18080"
-      - "127.0.0.1:18081:18081"
-    command: >
-      monerod
-      --non-interactive
-      --restricted-rpc
-      --rpc-bind-ip=0.0.0.0
-      --rpc-bind-port=18081
-      --confirm-external-bind
-      --enable-dns-blocklist
-      --prune-blockchain
-      --sync-pruned-blocks
-      --db-sync-mode=safe
-    restart: unless-stopped
-
   monero-wallet:
     image: sethsimmons/simple-monero-wallet-rpc:latest
     container_name: sf_monero_wallet
@@ -233,13 +234,12 @@ services:
       --rpc-bind-ip=0.0.0.0
       --rpc-bind-port=18083
       --confirm-external-bind
-      --daemon-host=monerod
-      --daemon-port=18081
+      --daemon-host=${MONERO_DAEMON_HOST:-node.community.rino.io}
+      --daemon-port=${MONERO_DAEMON_PORT:-18089}
+      --daemon-ssl-allow-any-cert
       --rpc-login=${MONERO_WALLET_RPC_USER:-rpc_user}:${MONERO_WALLET_RPC_PASSWORD:?MONERO_WALLET_RPC_PASSWORD gerekli}
       --wallet-dir=/home/monero/wallet
       --disable-rpc-login=false
-    depends_on:
-      - monerod
     restart: unless-stopped
 
   # ============================================
@@ -288,8 +288,7 @@ volumes:
   redis_data:
   minio_data:
   btcpay_data:
-  monero_data:
-  monero_wallet_data:
+  monero_wallet_data:   # Sadece cüzdan dosyası (~100 MB), blockchain yok
   media_data:
 
 networks:
