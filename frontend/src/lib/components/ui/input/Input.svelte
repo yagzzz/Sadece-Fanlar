@@ -11,7 +11,7 @@
 		| 'search'
 		| 'date'
 		| 'datetime-local' = 'text';
-	export let value = '';
+	export let value: string | number = '';
 	export let placeholder = '';
 	export let disabled = false;
 	export let error = '';
