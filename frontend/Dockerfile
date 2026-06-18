@@ -18,6 +18,8 @@ FROM node:20-alpine
 
 WORKDIR /app
 
+RUN apk add --no-cache wget
+
 COPY --from=builder /app/build ./build
 COPY --from=builder /app/package.json ./
 COPY --from=builder /app/package-lock.json ./
