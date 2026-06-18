@@ -68,7 +68,7 @@ class ActionFailure {
 	}
 }
 
-var BROWSER$1 = typeof window !== 'undefined';
+var BROWSER = typeof window !== 'undefined';
 
 const node_env = globalThis.process?.env?.NODE_ENV;
 var DEV = node_env && !node_env.toLowerCase().startsWith('prod');
@@ -138,7 +138,7 @@ new TextDecoder();
  * @throws {Error} If the provided status is invalid (not between 400 and 599).
  */
 function error(status, body) {
-	if ((!BROWSER$1 || DEV) && (isNaN(status) || status < 400 || status > 599)) {
+	if ((!BROWSER || DEV) && (isNaN(status) || status < 400 || status > 599)) {
 		throw new Error(`HTTP error status codes must be between 400 and 599 — ${status} is invalid`);
 	}
 
@@ -1317,7 +1317,7 @@ function stringify_primitive(thing) {
 	return String(thing);
 }
 
-const BROWSER = false;
+const browser = false;
 const SVELTE_KIT_ASSETS = "/_svelte_kit_assets";
 const ENDPOINT_METHODS = ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS", "HEAD"];
 const PAGE_METHODS = ["GET", "POST", "HEAD"];
@@ -2006,7 +2006,39 @@ const options = {
   service_worker: false,
   service_worker_options: void 0,
   templates: {
-    app: ({ head, body, assets, nonce, env }) => '<!doctype html>\n<html lang="tr" class="dark">\n	<head>\n		<meta charset="utf-8" />\n		<meta name="viewport" content="width=device-width, initial-scale=1" />\n		<meta name="theme-color" content="#d946ef" />\n		<meta name="description" content="Sadece Fanlar - Bağımsız içerik üreticileri için anonim abonelik platformu. Kripto ödemeler ile güvenli ve anonim." />\n		<meta name="keywords" content="içerik üreticisi, abonelik, kripto, monero, bitcoin, anonim ödeme" />\n		\n		<!-- Open Graph -->\n		<meta property="og:title" content="Sadece Fanlar" />\n		<meta property="og:description" content="Bağımsız içerik üreticileri için anonim abonelik platformu" />\n		<meta property="og:type" content="website" />\n		<meta property="og:image" content="/images/og-image.png" />\n		\n		<!-- Twitter Card -->\n		<meta name="twitter:card" content="summary_large_image" />\n		<meta name="twitter:title" content="Sadece Fanlar" />\n		<meta name="twitter:description" content="Bağımsız içerik üreticileri için anonim abonelik platformu" />\n		\n		<link rel="icon" href="/favicon.png" />\n		<link rel="apple-touch-icon" href="/apple-touch-icon.png" />\n		<link rel="manifest" href="/manifest.json" />\n		\n		' + head + '\n	</head>\n	<body data-sveltekit-preload-data="hover" class="min-h-screen bg-background antialiased">\n		<div style="display: contents">' + body + "</div>\n	</body>\n</html>\n",
+    app: ({ head, body, assets, nonce, env }) => `<!doctype html>
+<html lang="tr" class="dark">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<meta name="theme-color" content="#0a0a0a" />
+		<script>
+			// Tema: yanıp sönmeyi önlemek için sayfa render edilmeden önce uygula.
+			try {
+				var t = localStorage.getItem('theme');
+				if (t === 'light') document.documentElement.classList.remove('dark');
+				else document.documentElement.classList.add('dark');
+			} catch (e) {}
+		<\/script>
+		<meta name="description" content="Sadece Fanlar - Bağımsız içerik üreticileri için anonim abonelik platformu. Kripto ödemeler ile güvenli ve anonim." />
+		<meta name="keywords" content="içerik üreticisi, abonelik, kripto, monero, bitcoin, anonim ödeme" />
+		
+		<!-- Open Graph -->
+		<meta property="og:title" content="Sadece Fanlar" />
+		<meta property="og:description" content="Bağımsız içerik üreticileri için anonim abonelik platformu" />
+		<meta property="og:type" content="website" />
+		<meta property="og:image" content="/images/og-image.png" />
+		
+		<!-- Twitter Card -->
+		<meta name="twitter:card" content="summary_large_image" />
+		<meta name="twitter:title" content="Sadece Fanlar" />
+		<meta name="twitter:description" content="Bağımsız içerik üreticileri için anonim abonelik platformu" />
+		
+		<link rel="icon" href="/favicon.png" />
+		<link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+		<link rel="manifest" href="/manifest.json" />
+		
+		` + head + '\n	</head>\n	<body data-sveltekit-preload-data="hover" class="min-h-screen bg-background antialiased">\n		<div style="display: contents">' + body + "</div>\n	</body>\n</html>\n",
     error: ({ status, message }) => '<!doctype html>\n<html lang="en">\n	<head>\n		<meta charset="utf-8" />\n		<title>' + message + `</title>
 
 		<style>
@@ -2078,7 +2110,7 @@ const options = {
 		<div class="error">
 			<span class="status">` + status + '</span>\n			<div class="message">\n				<h1>' + message + "</h1>\n			</div>\n		</div>\n	</body>\n</html>\n"
   },
-  version_hash: "as0uyi"
+  version_hash: "1t7a2rh"
 };
 async function get_hooks() {
   let handle;
@@ -2838,7 +2870,7 @@ async function handle_action_json_request(event, event_state, options2, server) 
   check_named_default_separate(actions);
   try {
     const data = await call_action(event, event_state, actions);
-    if (BROWSER) ;
+    if (browser) ;
     if (data instanceof ActionFailure) {
       return action_json({
         type: "failure",
@@ -2923,7 +2955,7 @@ async function handle_action_request(event, event_state, server) {
   check_named_default_separate(actions);
   try {
     const data = await call_action(event, event_state, actions);
-    if (BROWSER) ;
+    if (browser) ;
     if (data instanceof ActionFailure) {
       return {
         type: "failure",
@@ -4182,7 +4214,7 @@ async function render_response({
       ])
     };
     try {
-      if (BROWSER) ;
+      if (browser) ;
       rendered = await with_request_store({ event, state: event_state }, async () => {
         if (relative) override({ base: base$1, assets: assets$1 });
         const maybe_promise = options2.root.render(props, render_opts);
@@ -4988,7 +5020,7 @@ async function render_page(event, event_state, page, options2, manifest, state, 
     const ssr = nodes.ssr();
     const csr = nodes.csr();
     if (ssr === false && !(state.prerendering && should_prerender_data)) {
-      if (BROWSER && action_result && !event.request.headers.has("x-sveltekit-action")) ;
+      if (browser && action_result && !event.request.headers.has("x-sveltekit-action")) ;
       return await render_response({
         branch: [],
         fetched,
@@ -5843,12 +5875,12 @@ async function internal_respond(request, options2, manifest, state) {
       if (url.pathname === base || url.pathname === base + "/") {
         trailing_slash = "always";
       } else if (page_nodes) {
-        if (BROWSER) ;
+        if (browser) ;
         trailing_slash = page_nodes.trailing_slash();
       } else if (route.endpoint) {
         const node = await route.endpoint();
         trailing_slash = node.trailingSlash ?? "never";
-        if (BROWSER) ;
+        if (browser) ;
       }
       if (!is_data_request) {
         const normalized = normalize_path(url.pathname, trailing_slash);
@@ -6108,7 +6140,7 @@ async function internal_respond(request, options2, manifest, state) {
         });
       }
       if (state.depth === 0) {
-        if (BROWSER && event2.url.pathname === "/.well-known/appspecific/com.chrome.devtools.json") ;
+        if (browser && event2.url.pathname === "/.well-known/appspecific/com.chrome.devtools.json") ;
         return await respond_with_error({
           event: event2,
           event_state,

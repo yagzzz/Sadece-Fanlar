@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { page } from '$app/stores';
 	import { authStore, logout } from '$lib/stores/auth';
+	import { theme } from '$lib/stores/theme';
 	import { Avatar, Button } from '$lib/components/ui';
 	import { cn } from '$lib/utils';
 	import { isAdmin } from '$lib/utils/auth';
@@ -48,6 +49,14 @@
 					{/if}
 				{/if}
 			</nav>
+
+			<button
+				type="button"
+				class="flex items-center gap-2 w-full px-3 py-2 mb-2 text-sm text-neutral-600 dark:text-neutral-400 hover:bg-neutral-50 dark:hover:bg-neutral-800/60 rounded-md transition-colors"
+				on:click={() => theme.toggle()}
+			>
+				{#if $theme === 'dark'}☀️ Aydınlık tema{:else}🌙 Karanlık tema{/if}
+			</button>
 
 			<div class="pt-4 border-t border-neutral-200 dark:border-neutral-800">
 				{#if user}

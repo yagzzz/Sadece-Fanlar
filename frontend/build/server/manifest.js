@@ -10,24 +10,25 @@ return {
 	assets: new Set([]),
 	mimeTypes: {},
 	_: {
-		client: {start:"_app/immutable/entry/start.DEm--If0.js",app:"_app/immutable/entry/app.fbWURknA.js",imports:["_app/immutable/entry/start.DEm--If0.js","_app/immutable/chunks/k2PWlTdl.js","_app/immutable/chunks/XXpMwIwE.js","_app/immutable/chunks/DTW7u3Rm.js","_app/immutable/entry/app.fbWURknA.js","_app/immutable/chunks/XXpMwIwE.js","_app/immutable/chunks/3UVa4XIC.js"],stylesheets:[],fonts:[],uses_env_dynamic_public:false},
+		client: {start:"_app/immutable/entry/start.TPaIXYzO.js",app:"_app/immutable/entry/app.BqflNRa4.js",imports:["_app/immutable/entry/start.TPaIXYzO.js","_app/immutable/chunks/J8pAhCgK.js","_app/immutable/chunks/BeCmXZKr.js","_app/immutable/chunks/BlVhov2R.js","_app/immutable/entry/app.BqflNRa4.js","_app/immutable/chunks/BeCmXZKr.js","_app/immutable/chunks/DhgJD4CZ.js"],stylesheets:[],fonts:[],uses_env_dynamic_public:false},
 		nodes: [
-			__memo(() => import('./chunks/0-Bsf5q4aM.js')),
-			__memo(() => import('./chunks/1-CMZLPyNF.js')),
-			__memo(() => import('./chunks/2-BSAdVmld.js')),
-			__memo(() => import('./chunks/3-BeQSoe2F.js')),
-			__memo(() => import('./chunks/4-o8q6fygP.js')),
-			__memo(() => import('./chunks/5-CpU9kyny.js')),
-			__memo(() => import('./chunks/6-1v3oi0g2.js')),
-			__memo(() => import('./chunks/7-BF-HK83d.js')),
-			__memo(() => import('./chunks/8-CZbvVf-H.js')),
-			__memo(() => import('./chunks/9-DAOrtn2L.js')),
-			__memo(() => import('./chunks/10-BwdI5VMi.js')),
-			__memo(() => import('./chunks/11-bRidAMt2.js')),
-			__memo(() => import('./chunks/12-DSQSx62G.js')),
-			__memo(() => import('./chunks/13-CAzk36Lr.js')),
-			__memo(() => import('./chunks/14-DQtA2p0g.js')),
-			__memo(() => import('./chunks/15-Da_lZCM9.js'))
+			__memo(() => import('./chunks/0-zmxTIO_D.js')),
+			__memo(() => import('./chunks/1-BEbWJ3YV.js')),
+			__memo(() => import('./chunks/2--JnlWfbQ.js')),
+			__memo(() => import('./chunks/3-hQF3-diZ.js')),
+			__memo(() => import('./chunks/4-wp-GxSjt.js')),
+			__memo(() => import('./chunks/5-B6YVM5wE.js')),
+			__memo(() => import('./chunks/6-Ciy1yGaB.js')),
+			__memo(() => import('./chunks/7-B05_dOqg.js')),
+			__memo(() => import('./chunks/8-DyvEcchJ.js')),
+			__memo(() => import('./chunks/9-DH38AQj0.js')),
+			__memo(() => import('./chunks/10-Bhv6CJl2.js')),
+			__memo(() => import('./chunks/11-DVZgp-Fs.js')),
+			__memo(() => import('./chunks/12-DT5Rjglq.js')),
+			__memo(() => import('./chunks/13-DJv0IJzr.js')),
+			__memo(() => import('./chunks/14-4xr_K9PN.js')),
+			__memo(() => import('./chunks/15-U25vYsN8.js')),
+			__memo(() => import('./chunks/16-eK4gbWK9.js'))
 		],
 		remotes: {
 			
@@ -51,7 +52,7 @@ return {
 				id: "/(auth)/login",
 				pattern: /^\/login\/?$/,
 				params: [],
-				page: { layouts: [0,3,], errors: [1,,], leaf: 14 },
+				page: { layouts: [0,3,], errors: [1,,], leaf: 15 },
 				endpoint: null
 			},
 			{
@@ -76,38 +77,45 @@ return {
 				endpoint: null
 			},
 			{
+				id: "/(app)/post/[id]",
+				pattern: /^\/post\/([^/]+?)\/?$/,
+				params: [{"name":"id","optional":false,"rest":false,"chained":false}],
+				page: { layouts: [0,2,], errors: [1,,], leaf: 10 },
+				endpoint: null
+			},
+			{
 				id: "/(app)/privacy",
 				pattern: /^\/privacy\/?$/,
 				params: [],
-				page: { layouts: [0,2,], errors: [1,,], leaf: 10 },
+				page: { layouts: [0,2,], errors: [1,,], leaf: 11 },
 				endpoint: null
 			},
 			{
 				id: "/(auth)/register",
 				pattern: /^\/register\/?$/,
 				params: [],
-				page: { layouts: [0,3,], errors: [1,,], leaf: 15 },
+				page: { layouts: [0,3,], errors: [1,,], leaf: 16 },
 				endpoint: null
 			},
 			{
 				id: "/(app)/settings",
 				pattern: /^\/settings\/?$/,
 				params: [],
-				page: { layouts: [0,2,], errors: [1,,], leaf: 11 },
+				page: { layouts: [0,2,], errors: [1,,], leaf: 12 },
 				endpoint: null
 			},
 			{
 				id: "/(app)/terms",
 				pattern: /^\/terms\/?$/,
 				params: [],
-				page: { layouts: [0,2,], errors: [1,,], leaf: 12 },
+				page: { layouts: [0,2,], errors: [1,,], leaf: 13 },
 				endpoint: null
 			},
 			{
 				id: "/(app)/wallet",
 				pattern: /^\/wallet\/?$/,
 				params: [],
-				page: { layouts: [0,2,], errors: [1,,], leaf: 13 },
+				page: { layouts: [0,2,], errors: [1,,], leaf: 14 },
 				endpoint: null
 			},
 			{

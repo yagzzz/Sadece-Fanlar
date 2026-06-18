@@ -287,9 +287,20 @@ export const postApi = {
 		categories?: string[];
 		age_confirmed: boolean;
 	}) => unwrap(api.post('/users/creator-application', data)),
-	explore: async (params: { q?: string }) => {
-		const q = params?.q ? encodeURIComponent(params.q) : '';
-		return unwrap(api.get(`/users/search?q=${q}`));
+	explore: async (params?: { sort?: string; search?: string; page?: number; limit?: number }) => {
+		const sort = params?.sort || 'featured';
+		const page = params?.page || 1;
+		const limit = params?.limit || 20;
+		const search = params?.search ? `&q=${encodeURIComponent(params.search)}` : '';
+		const data: any = await unwrap(
+			api.get(`/users/creators?sort=${sort}&page=${page}&limit=${limit}${search}`)
+		);
+		return { items: data?.items ?? [], total: data?.total ?? 0, hasMore: data?.has_more ?? false };
+	},
+	search: async (q: string) => {
+		if (!q || q.length < 2) return { items: [] };
+		const data: any = await unwrap(api.get(`/users/search?q=${encodeURIComponent(q)}`));
+		return { items: Array.isArray(data) ? data : (data?.items ?? []) };
 	},
 };
 
@@ -311,8 +322,20 @@ export const postApi = {
 		}
 	},
 	create: (data: any) => unwrap(postApi.createPost(data)),
-	uploadMedia: async (_file: File) => {
-		throw new Error('Medya yükleme servisi yapılandırılmadı.');
+	get: async (id: string) => unwrap(postApi.getPost(id)),
+	getComments: async (id: string, page = 1) => {
+		try {
+			const data: any = await unwrap(postApi.getComments(id, page));
+			return { items: Array.isArray(data) ? data : (data?.items ?? data?.comments ?? []) };
+		} catch {
+			return { items: [] };
+		}
+	},
+	addComment: (id: string, content: string) => unwrap(postApi.addComment(id, content)),
+	uploadMedia: async (file: File) => {
+		const fd = new FormData();
+		fd.append('file', file);
+		return unwrap(api.upload('/posts/media', fd));
 	},
 };
 

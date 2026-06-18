@@ -5,16 +5,18 @@ from datetime import datetime
 from typing import Optional, List
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, status, Query
+from fastapi import APIRouter, Depends, HTTPException, status, Query, UploadFile, File
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, and_, or_, desc
 from sqlalchemy.orm import selectinload
 
 from app.core.database import get_db
+from app.core.config import settings
 from app.models.user import User
-from app.models.post import Post, PostMedia, PostComment, PostReaction, PostStatus
+from app.models.post import Post, PostMedia, PostComment, PostReaction, PostStatus, MediaType
 from app.models.subscription import Subscription, SubscriptionStatus
-from app.models.content import UserBookmark
+from app.models.content import UserBookmark, Attachment
+from app.services.storage import storage_service
 from app.models.transaction import Transaction, TransactionType, TransactionStatus
 from app.schemas.post import (
     PostCreate,
@@ -129,6 +131,76 @@ async def check_post_access(
         return True, False
     
     return True, True
+
+
+@router.post("/media")
+async def upload_post_media(
+    file: UploadFile = File(...),
+    current_user: User = Depends(get_current_creator),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Gönderi için medya yükle (resim/video/ses).
+    Yüklenen dosya bir Attachment olarak saklanır; dönen `id` gönderi
+    oluştururken `media_ids` içinde kullanılır.
+    """
+    content_type = (file.content_type or "").lower()
+
+    try:
+        if content_type in settings.allowed_image_types:
+            info = await storage_service.upload_image(
+                file, prefix="posts", create_thumbnail=True, create_blur=True
+            )
+            media_type = MediaType.IMAGE
+        elif content_type in settings.allowed_video_types:
+            info = await storage_service.upload_file(
+                file, prefix="posts", allowed_types=settings.allowed_video_types
+            )
+            media_type = MediaType.VIDEO
+        elif content_type in settings.allowed_audio_types:
+            info = await storage_service.upload_file(
+                file, prefix="posts", allowed_types=settings.allowed_audio_types
+            )
+            media_type = MediaType.AUDIO
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Desteklenmeyen dosya türü",
+            )
+    except HTTPException:
+        raise
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+    except Exception:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Medya depolama servisine ulaşılamadı",
+        )
+
+    attachment = Attachment(
+        user_id=current_user.id,
+        type=media_type,
+        url=info["url"],
+        thumbnail_url=info.get("thumbnail_url"),
+        blur_url=info.get("blur_url"),
+        filename=info.get("filename", file.filename or "media"),
+        original_filename=info.get("original_filename", file.filename or "media"),
+        file_size=info.get("file_size", 0),
+        mime_type=info.get("mime_type", content_type),
+        width=info.get("width"),
+        height=info.get("height"),
+        is_processed=True,
+    )
+    db.add(attachment)
+    await db.commit()
+    await db.refresh(attachment)
+
+    return {
+        "id": str(attachment.id),
+        "type": media_type.value,
+        "url": attachment.url,
+        "thumbnail_url": attachment.thumbnail_url,
+    }
 
 
 @router.get("/feed", response_model=PostListResponse)

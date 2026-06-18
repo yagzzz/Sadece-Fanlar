@@ -266,6 +266,61 @@ async def search_users(
     return users
 
 
+@router.get("/creators")
+async def list_creators(
+    sort: str = Query(default="featured"),
+    q: Optional[str] = Query(default=None, max_length=50),
+    page: int = Query(default=1, ge=1),
+    limit: int = Query(default=20, ge=1, le=50),
+    current_user: Optional[User] = Depends(get_current_user_optional),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    İçerik üreticilerini listele (Keşfet sayfası).
+    sort: featured | new | popular
+    Arama (q) opsiyoneldir; boşsa tüm üreticiler döner.
+    """
+    offset = (page - 1) * limit
+
+    filters = [
+        User.deleted_at.is_(None),
+        User.is_active == True,
+        User.is_creator == True,
+    ]
+
+    if q:
+        term = f"%{q.lower()}%"
+        filters.append(
+            func.lower(User.username).like(term) | func.lower(User.display_name).like(term)
+        )
+
+    query = select(User).where(and_(*filters))
+
+    if sort == "new":
+        query = query.order_by(User.created_at.desc())
+    elif sort == "popular":
+        query = query.order_by(User.subscribers_count.desc(), User.posts_count.desc())
+    else:  # featured
+        query = query.order_by(
+            User.is_verified_creator.desc(),
+            User.subscribers_count.desc(),
+        )
+
+    query = query.offset(offset).limit(limit)
+    result = await db.execute(query)
+    creators = result.scalars().all()
+
+    total = await db.scalar(select(func.count(User.id)).where(and_(*filters))) or 0
+
+    return {
+        "items": [UserSearchResult.model_validate(u) for u in creators],
+        "total": total,
+        "page": page,
+        "limit": limit,
+        "has_more": offset + len(creators) < total,
+    }
+
+
 @router.post("/{username}/follow", response_model=SuccessResponse)
 async def follow_user(
     username: str,

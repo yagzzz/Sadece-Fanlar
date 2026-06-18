@@ -12,9 +12,9 @@
 	let activeTab = 'featured';
 
 	const tabs = [
-		{ id: 'featured', label: '⭐ Öne Çıkanlar' },
-		{ id: 'new', label: '🆕 Yeni' },
-		{ id: 'popular', label: '🔥 Popüler' },
+		{ id: 'featured', label: 'Öne Çıkanlar' },
+		{ id: 'new', label: 'Yeni' },
+		{ id: 'popular', label: 'Popüler' },
 	];
 
 	async function loadUsers() {
@@ -53,15 +53,8 @@
 	<title>İçerik Üreticilerini Keşfet | SadeceFanlar</title>
 </svelte:head>
 
-<div class="p-4 space-y-6">
-	<div>
-		<h1 class="text-2xl font-bold text-neutral-900 dark:text-white mb-2">
-			İçerik Üreticilerini Keşfet
-		</h1>
-		<p class="text-neutral-500">
-			Muhteşem içerik üreticilerini keşfedin ve anonim olarak destekleyin.
-		</p>
-	</div>
+<div class="space-y-5">
+	<h1 class="text-xl font-semibold text-neutral-900 dark:text-white">Keşfet</h1>
 
 	<!-- Search -->
 	<Input
@@ -88,8 +81,7 @@
 			</div>
 		{:else if users.length === 0}
 			<div class="text-center py-12">
-				<p class="text-4xl mb-4">🔍</p>
-				<h2 class="text-xl font-semibold text-neutral-900 dark:text-white mb-2">
+				<h2 class="text-lg font-medium text-neutral-900 dark:text-white mb-2">
 					İçerik üreticisi bulunamadı
 				</h2>
 				<p class="text-neutral-500">
@@ -101,8 +93,8 @@
 				{#each users as user (user.id)}
 					<UserCard
 						{user}
-						on:subscribe={(e) => console.log('subscribe', e.detail)}
-						on:message={(e) => window.location.href = `/messages/${e.detail.id}`}
+						on:subscribe={(e) => (window.location.href = `/${e.detail.username}`)}
+						on:message={(e) => (window.location.href = `/messages/${e.detail.id}`)}
 					/>
 				{/each}
 			</div>

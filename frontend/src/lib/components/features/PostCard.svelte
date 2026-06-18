@@ -12,8 +12,9 @@
 
 	const dispatch = createEventDispatcher();
 
-	$: isLocked = post.is_premium && !post.is_unlocked;
-	$: isOwner = $authStore.user?.id === post.user_id;
+	$: creator = post.author ?? post.user;
+	$: isLocked = (post.is_ppv || post.is_premium) && !post.is_unlocked;
+	$: isOwner = $authStore.user?.id === (creator?.id ?? post.user_id);
 	$: mediaCount = post.media?.length || 0;
 	$: currentMediaIndex = 0;
 
@@ -75,18 +76,18 @@
 	<!-- Header -->
 	{#if showCreator}
 		<div class="p-4 flex items-center justify-between">
-			<a href="/{post.user?.username}" class="flex items-center gap-3 group">
-				<Avatar src={post.user?.avatar_url} alt={post.user?.display_name} size="md" />
+			<a href="/{creator?.username}" class="flex items-center gap-3 group">
+				<Avatar src={creator?.avatar_url} alt={creator?.display_name} size="md" />
 				<div>
 					<div class="flex items-center gap-1">
 						<span class="font-semibold text-neutral-900 dark:text-white group-hover:text-primary transition-colors">
-							{post.user?.display_name}
+							{creator?.display_name || creator?.username}
 						</span>
-						{#if post.user?.is_verified}
+						{#if creator?.is_verified_creator}
 							<Badge variant="primary" class="text-xs">✓</Badge>
 						{/if}
 					</div>
-					<p class="text-sm text-neutral-500">@{post.user?.username} · {timeAgo(post.created_at)}</p>
+					<p class="text-sm text-neutral-500">@{creator?.username} · {timeAgo(post.created_at)}</p>
 				</div>
 			</a>
 			<Dropdown items={dropdownItems} on:select={handleDropdownSelect} />
@@ -94,9 +95,9 @@
 	{/if}
 
 	<!-- Content -->
-	{#if post.content}
+	{#if post.text ?? post.content}
 		<div class="px-4 pb-3">
-			<p class="text-neutral-800 dark:text-neutral-200 whitespace-pre-wrap">{post.content}</p>
+			<p class="text-neutral-800 dark:text-neutral-200 whitespace-pre-wrap">{post.text ?? post.content}</p>
 		</div>
 	{/if}
 
@@ -108,7 +109,7 @@
 				<div class="absolute inset-0 flex flex-col items-center justify-center bg-neutral-900/80 backdrop-blur-xl">
 					<div class="text-4xl mb-4">🔒</div>
 					<p class="text-white text-lg font-medium mb-2">Premium İçerik</p>
-					<p class="text-neutral-400 mb-4">{formatCurrency(post.price || 0)} ile kilidi aç</p>
+					<p class="text-neutral-400 mb-4">{formatCurrency(post.ppv_price ?? post.price ?? 0)} ile kilidi aç</p>
 					<Button on:click={handleUnlock}>Kilidi Aç</Button>
 				</div>
 				<!-- Blurred thumbnail -->
