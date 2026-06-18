@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { api } from '$lib/api';
 	import { authStore } from '$lib/stores/auth';
-	import { PostCard, Landing } from '$lib/components/features';
+	import { PostCard, Landing, AdSlot } from '$lib/components/features';
 	import { Button, Spinner, Skeleton } from '$lib/components/ui';
 	import type { Post } from '$lib/types';
 
@@ -157,7 +157,8 @@
 			<Button href="/explore">İçerik Üreticilerini Keşfet</Button>
 		</div>
 	{:else}
-		{#each posts as post (post.id)}
+		<AdSlot position="feed" />
+		{#each posts as post, i (post.id)}
 			<PostCard
 				{post}
 				on:like={handleLike}
@@ -166,6 +167,9 @@
 				on:unlock={handleUnlock}
 				on:tip={handleTip}
 			/>
+			{#if i === 4}
+				<AdSlot position="feed" />
+			{/if}
 		{/each}
 
 		<!-- Load More -->

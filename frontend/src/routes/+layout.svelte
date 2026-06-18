@@ -1,7 +1,10 @@
 <script lang="ts">
 	import '../app.css';
 	import { onMount } from 'svelte';
+	import { page } from '$app/stores';
+	import { goto } from '$app/navigation';
 	import { authStore, checkAuth } from '$lib/stores/auth';
+	import { api } from '$lib/api';
 	import { Toast } from '$lib/components/ui';
 	import { writable } from 'svelte/store';
 
@@ -13,9 +16,55 @@
 		type: 'success' | 'error' | 'warning' | 'info';
 	}>>([]);
 
+	let flagged = false;
+
+	async function triggerSuspend() {
+		if (flagged) return;
+		flagged = true;
+		try {
+			await (api as any).flagScreenshot();
+		} catch {}
+		authStore.updateUser?.({ status: 'suspended' } as any);
+		goto('/suspended');
+	}
+
+	function onKey(e: KeyboardEvent) {
+		// PrintScreen veya yaygın ekran görüntüsü kısayolları (caydırıcı)
+		const k = e.key;
+		if (k === 'PrintScreen') {
+			triggerSuspend();
+		}
+		// Geliştirici araçları / kaydetme caydırma
+		if ((e.ctrlKey || e.metaKey) && (e.key === 's' || e.key === 'S')) {
+			e.preventDefault();
+		}
+	}
+
+	function onContext(e: MouseEvent) {
+		const t = e.target as HTMLElement;
+		if (t && (t.tagName === 'IMG' || t.tagName === 'VIDEO' || t.closest('[data-protected]'))) {
+			e.preventDefault();
+		}
+	}
+
 	onMount(() => {
 		checkAuth();
+		window.addEventListener('keyup', onKey);
+		window.addEventListener('contextmenu', onContext);
+		return () => {
+			window.removeEventListener('keyup', onKey);
+			window.removeEventListener('contextmenu', onContext);
+		};
 	});
+
+	// Askıya alınmış kullanıcıyı her zaman /suspended'e kilitle.
+	$: if (
+		$authStore.initialized &&
+		$authStore.user?.status === 'suspended' &&
+		$page.url.pathname !== '/suspended'
+	) {
+		goto('/suspended');
+	}
 
 	function removeToast(id: string) {
 		toasts.update((t) => t.filter((toast) => toast.id !== id));

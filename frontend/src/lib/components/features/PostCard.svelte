@@ -1,9 +1,13 @@
 <script lang="ts">
 	import { cn, formatCurrency, timeAgo } from '$lib/utils';
 	import { Avatar, Badge, Button, Dropdown } from '$lib/components/ui';
+	import Watermark from './Watermark.svelte';
+	import ReportModal from './ReportModal.svelte';
 	import type { Post } from '$lib/types';
 	import { createEventDispatcher } from 'svelte';
 	import { authStore } from '$lib/stores/auth';
+
+	let showReport = false;
 
 	export let post: Post;
 	export let showCreator = true;
@@ -51,6 +55,10 @@
 	}
 
 	function handleDropdownSelect(e: CustomEvent<string>) {
+		if (e.detail === 'report') {
+			showReport = true;
+			return;
+		}
 		dispatch(e.detail, post);
 	}
 
@@ -103,7 +111,10 @@
 
 	<!-- Media -->
 	{#if post.media && post.media.length > 0}
-		<div class="relative aspect-square bg-neutral-100 dark:bg-neutral-800">
+		<div class="relative aspect-square bg-neutral-100 dark:bg-neutral-800" data-protected>
+			{#if !isLocked}
+				<Watermark />
+			{/if}
 			{#if isLocked}
 				<!-- Locked content -->
 				<div class="absolute inset-0 flex flex-col items-center justify-center bg-neutral-900/80 backdrop-blur-xl">
@@ -228,3 +239,5 @@
 		</button>
 	</div>
 </article>
+
+<ReportModal bind:open={showReport} reportedType="post" reportedId={post.id} reportedUserId={creator?.id} />

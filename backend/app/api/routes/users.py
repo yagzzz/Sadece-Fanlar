@@ -26,6 +26,22 @@ from app.api.deps import get_current_user, get_current_user_optional
 router = APIRouter(prefix="/users", tags=["Users"])
 
 
+@router.post("/me/flag-screenshot")
+async def flag_screenshot(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    İstemci ekran görüntüsü girişimi algıladığında çağrılır.
+    Hesabı askıya alır (web'de %100 engellenemez; bu caydırıcı + iz mekanizmasıdır).
+    """
+    from app.models.user import UserStatus
+    current_user.status = UserStatus.SUSPENDED
+    current_user.ban_reason = "Ekran görüntüsü/izinsiz kayıt girişimi"
+    await db.commit()
+    return {"status": "suspended"}
+
+
 @router.post("/creator-application", response_model=UserResponse)
 async def creator_application(
     data: BecomeCreatorRequest,

@@ -14,6 +14,7 @@ export interface User {
 	is_verified?: boolean;
 	is_verified_creator?: boolean;
 	role?: string;
+	status?: string;
 	is_email_verified: boolean;
 	is_free_profile?: boolean;
 	is_following?: boolean;

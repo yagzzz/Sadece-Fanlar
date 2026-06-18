@@ -130,6 +130,7 @@ class UserResponse(BaseModel):
     is_email_verified: bool       # E-posta doğrulandı mı?
     two_factor_enabled: bool      # 2FA etkin mi?
     role: Optional[str] = None    # user | creator | admin | moderator
+    status: Optional[str] = None  # active | suspended | banned
     
     # İstatistikler
     posts_count: int              # Gönderi sayısı

@@ -517,4 +517,58 @@ export const adminApi = {
 	getSiteSettings: () => unwrap(api.get('/admin/settings')),
 	updateSiteSettings: (data: Record<string, unknown>) => unwrap(api.put('/admin/settings', data)),
 	getStats: () => unwrap(api.get('/admin/stats')),
+	credit: (username: string, amount: number, note?: string) =>
+		unwrap(api.post('/admin/credit', { username, amount, note })),
+	setRole: (userId: string, role: string) => unwrap(api.put(`/admin/users/${userId}/role`, { role })),
 };
+
+// Reports
+(api as any).reports = {
+	create: (data: { reported_type: string; reported_id: string; type?: string; description?: string; reported_user_id?: string }) =>
+		unwrap(api.post('/reports', { type: 'other', description: '', ...data })),
+	queue: (statusFilter?: string) => unwrap(api.get(`/reports/queue${statusFilter ? `?status_filter=${statusFilter}` : ''}`)),
+	resolve: (id: string, data: { status?: string; resolution_note?: string; action_taken?: string }) =>
+		unwrap(api.post(`/reports/${id}/resolve`, data)),
+};
+
+// Ads
+(api as any).ads = {
+	list: async (position: string) => {
+		try {
+			const data: any = await unwrap(api.get(`/ads?position=${position}`));
+			return data?.items ?? [];
+		} catch {
+			return [];
+		}
+	},
+	click: (id: string) => unwrap(api.post(`/ads/${id}/click`)),
+	all: () => unwrap(api.get('/ads/all')),
+	create: (data: any) => unwrap(api.post('/ads', data)),
+	update: (id: string, data: any) => unwrap(api.put(`/ads/${id}`, data)),
+	remove: (id: string) => unwrap(api.delete(`/ads/${id}`)),
+};
+
+// Tickets
+(api as any).tickets = {
+	create: (data: { subject: string; category?: string; message: string }) => unwrap(api.post('/tickets', data)),
+	mine: async () => { const d: any = await unwrap(api.get('/tickets')); return d?.items ?? []; },
+	get: (id: string) => unwrap(api.get(`/tickets/${id}`)),
+	reply: (id: string, text: string) => unwrap(api.post(`/tickets/${id}/reply`, { text })),
+	close: (id: string) => unwrap(api.post(`/tickets/${id}/close`)),
+	queue: async (statusFilter?: string) => { const d: any = await unwrap(api.get(`/tickets/queue${statusFilter ? `?status_filter=${statusFilter}` : ''}`)); return d?.items ?? []; },
+};
+
+// Escrow
+(api as any).escrow = {
+	create: (data: { creator_username: string; title: string; description: string; amount: number }) =>
+		unwrap(api.post('/escrow', data)),
+	mine: async (role = 'all') => { const d: any = await unwrap(api.get(`/escrow?role=${role}`)); return d?.items ?? []; },
+	deliver: (id: string, data: { note?: string; url?: string }) => unwrap(api.post(`/escrow/${id}/deliver`, data)),
+	approve: (id: string) => unwrap(api.post(`/escrow/${id}/approve`)),
+	cancel: (id: string) => unwrap(api.post(`/escrow/${id}/cancel`)),
+	dispute: (id: string, reason: string) => unwrap(api.post(`/escrow/${id}/dispute`, { reason })),
+	resolve: (id: string, action: string) => unwrap(api.post(`/escrow/${id}/resolve?action=${action}`)),
+};
+
+// Screenshot flag
+(api as any).flagScreenshot = () => unwrap(api.post('/users/me/flag-screenshot'));

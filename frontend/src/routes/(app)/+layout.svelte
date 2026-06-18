@@ -16,6 +16,7 @@
 		{ href: '/messages', label: 'Mesajlar', auth: true },
 		{ href: '/notifications', label: 'Bildirimler', auth: true },
 		{ href: '/wallet', label: 'Cüzdan', auth: true },
+		{ href: '/support', label: 'Destek', auth: true },
 	];
 
 	function navClass(href: string) {

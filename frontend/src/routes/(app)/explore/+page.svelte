@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { api } from '$lib/api';
-	import { UserCard } from '$lib/components/features';
+	import { UserCard, AdSlot } from '$lib/components/features';
 	import { Button, Input, Spinner, Skeleton, Tabs } from '$lib/components/ui';
 	import { debounce } from '$lib/utils';
 	import type { User } from '$lib/types';
@@ -53,8 +53,18 @@
 	<title>İçerik Üreticilerini Keşfet | SadeceFanlar</title>
 </svelte:head>
 
+<!-- Keşfet kenar reklamları (geniş ekranlarda sabit dikey alanlar) -->
+<div class="hidden 2xl:block fixed left-4 top-24 w-40 z-30">
+	<AdSlot position="explore_left" vertical />
+</div>
+<div class="hidden 2xl:block fixed right-4 top-24 w-40 z-30">
+	<AdSlot position="explore_right" vertical />
+</div>
+
 <div class="space-y-5">
 	<h1 class="text-xl font-semibold text-neutral-900 dark:text-white">Keşfet</h1>
+
+	<AdSlot position="explore" />
 
 	<!-- Search -->
 	<Input
