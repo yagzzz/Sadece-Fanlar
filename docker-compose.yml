@@ -228,18 +228,14 @@ services:
     environment:
       WALLET_RPC_USER: ${MONERO_WALLET_RPC_USER:-rpc_user}
       WALLET_RPC_PASS: ${MONERO_WALLET_RPC_PASSWORD:?MONERO_WALLET_RPC_PASSWORD gerekli}
+    # Not: entrypoint zaten şunları ekliyor: monero-wallet-rpc --non-interactive
+    # --rpc-bind-ip=0.0.0.0 --confirm-external-bind. Burada sadece kalanları veriyoruz.
     command: >
-      monero-wallet-rpc
-      --non-interactive
-      --rpc-bind-ip=0.0.0.0
       --rpc-bind-port=18083
-      --confirm-external-bind
-      --daemon-host=${MONERO_DAEMON_HOST:-node.community.rino.io}
-      --daemon-port=${MONERO_DAEMON_PORT:-18089}
-      --daemon-ssl-allow-any-cert
+      --daemon-address=${MONERO_DAEMON_ADDRESS:-node.monerodevs.org:18089}
+      --trusted-daemon
       --rpc-login=${MONERO_WALLET_RPC_USER:-rpc_user}:${MONERO_WALLET_RPC_PASSWORD:?MONERO_WALLET_RPC_PASSWORD gerekli}
       --wallet-dir=/home/monero/wallet
-      --disable-rpc-login=false
     restart: unless-stopped
 
   # ============================================
