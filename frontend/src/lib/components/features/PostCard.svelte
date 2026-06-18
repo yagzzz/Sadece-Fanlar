@@ -47,7 +47,7 @@
 	}
 
 	function handleTip() {
-		dispatch('tip', post.user_id);
+		dispatch('tip', post);
 	}
 
 	function handleDropdownSelect(e: CustomEvent<string>) {

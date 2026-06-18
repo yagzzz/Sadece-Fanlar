@@ -448,6 +448,50 @@ export const streamApi = {
 	markAllAsRead: () => unwrap(notificationApi.markAllAsRead()),
 };
 
+// Payments compatibility (cüzdan ile anında işlem)
+(api as ApiClient & { payments?: any }).payments = {
+	tip: (recipientId: string, amount: number, opts?: { postId?: string; message?: string }) =>
+		unwrap(
+			api.post('/payments/tip', {
+				recipient_id: recipientId,
+				amount,
+				post_id: opts?.postId,
+				message: opts?.message,
+				payment_method: 'wallet',
+			})
+		),
+	unlockPost: (postId: string) =>
+		unwrap(api.post(`/payments/posts/${postId}/unlock`, { payment_method: 'wallet' })),
+	createDeposit: (amount: number, method = 'monero') =>
+		unwrap(api.post('/payments/deposit', { amount, payment_method: method })),
+	checkStatus: (id: string) => unwrap(api.get(`/payments/request/${id}/status`)),
+};
+
+// Subscriptions compatibility
+(api as ApiClient & { subscriptions?: any }).subscriptions = {
+	getCreatorPlans: async (username: string) => {
+		try {
+			const data: any = await unwrap(subscriptionApi.getPlans(username));
+			return Array.isArray(data) ? data : (data?.items ?? data?.plans ?? []);
+		} catch {
+			return [];
+		}
+	},
+	subscribe: async (
+		creatorId: string,
+		username: string,
+		opts?: { months?: number; paymentMethod?: string }
+	) =>
+		unwrap(
+			subscriptionApi.subscribe(username, {
+				creator_id: creatorId,
+				months: opts?.months ?? 1,
+				payment_method: opts?.paymentMethod ?? 'wallet',
+			})
+		),
+	unsubscribe: (username: string) => unwrap(subscriptionApi.unsubscribe(username)),
+};
+
 // Wallet compatibility
 (api as ApiClient & { wallet?: any }).wallet = {
 	get: async () => {

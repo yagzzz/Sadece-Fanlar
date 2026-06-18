@@ -60,6 +60,42 @@
 		}
 	}
 
+	async function handleTip(e: CustomEvent<any>) {
+		const post = e.detail;
+		const recipientId = post?.author?.id ?? post?.user?.id ?? post?.user_id;
+		if (!recipientId) return;
+		const input = prompt('Bahşiş tutarı (TL):', '10');
+		if (!input) return;
+		const amount = parseFloat(input);
+		if (!amount || amount <= 0) return;
+		try {
+			await api.payments.tip(recipientId, amount, { postId: post.id });
+			alert('Bahşiş gönderildi, teşekkürler!');
+		} catch (err: any) {
+			const msg = err?.message || 'Bahşiş başarısız';
+			if (msg.toLowerCase().includes('bakiye')) {
+				if (confirm('Bakiyeniz yetersiz. Cüzdana gitmek ister misiniz?')) window.location.href = '/wallet';
+			} else alert(msg);
+		}
+	}
+
+	async function handleUnlock(e: CustomEvent<any>) {
+		const post = e.detail;
+		if (!post?.id) return;
+		const price = post.ppv_price ?? post.price ?? 0;
+		if (!confirm(`Bu içeriğin kilidini ${price} TL ile açmak istiyor musunuz?`)) return;
+		try {
+			await api.payments.unlockPost(post.id);
+			posts = posts.map((p) => (p.id === post.id ? { ...p, is_unlocked: true } : p));
+			alert('İçerik kilidi açıldı!');
+		} catch (err: any) {
+			const msg = err?.message || 'Kilit açma başarısız';
+			if (msg.toLowerCase().includes('bakiye')) {
+				if (confirm('Bakiyeniz yetersiz. Cüzdana gitmek ister misiniz?')) window.location.href = '/wallet';
+			} else alert(msg);
+		}
+	}
+
 	let started = false;
 	// Auth durumu hazır olduğunda: giriş yapıldıysa akışı yükle,
 	// yapılmadıysa tanıtım (landing) sayfasını göster.
@@ -127,8 +163,8 @@
 				on:like={handleLike}
 				on:bookmark={handleBookmark}
 				on:comment={(e) => window.location.href = `/post/${e.detail}`}
-				on:unlock={(e) => console.log('unlock', e.detail)}
-				on:tip={(e) => console.log('tip', e.detail)}
+				on:unlock={handleUnlock}
+				on:tip={handleTip}
 			/>
 		{/each}
 

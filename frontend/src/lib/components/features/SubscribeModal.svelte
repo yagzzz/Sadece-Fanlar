@@ -27,15 +27,23 @@
 	async function loadPlans() {
 		loading = true;
 		try {
-			plans = await api.subscriptions.getCreatorPlans(user.id);
-			if (plans.length > 0) {
-				selectedPlan = plans[0];
-			}
+			plans = await api.subscriptions.getCreatorPlans(user.username);
 		} catch (err) {
-			console.error('Failed to load plans:', err);
-		} finally {
-			loading = false;
+			plans = [];
 		}
+		// Plan tanımlı değilse üreticinin abonelik fiyatından varsayılan plan üret.
+		if (!plans || plans.length === 0) {
+			plans = [
+				{
+					id: 'default',
+					name: 'Aylık Abonelik',
+					price: user.subscription_price || 0,
+					description: 'Tüm özel içeriklere erişim',
+				} as SubscriptionPlan,
+			];
+		}
+		selectedPlan = plans[0];
+		loading = false;
 	}
 
 	function calculatePrice(basePrice: number, months: number, discount: number) {

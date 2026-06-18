@@ -18,9 +18,9 @@
 	let showSubscribeModal = false;
 
 	const tabs = [
-		{ id: 'posts', label: '📝 Gönderiler' },
-		{ id: 'media', label: '📷 Medya' },
-		{ id: 'locked', label: '🔒 Kilitli' },
+		{ id: 'posts', label: 'Gönderiler' },
+		{ id: 'media', label: 'Medya' },
+		{ id: 'locked', label: 'Kilitli' },
 	];
 
 	$: isOwnProfile = $authStore.user?.username === username;
@@ -65,8 +65,38 @@
 		}
 	}
 
+	let subscribing = false;
+
 	function handleSubscribe() {
+		if (!$authStore.user) {
+			window.location.href = '/login';
+			return;
+		}
 		showSubscribeModal = true;
+	}
+
+	async function doSubscribe(e: CustomEvent<any>) {
+		if (!user || subscribing) return;
+		const months = e.detail?.months || 1;
+		subscribing = true;
+		try {
+			await api.subscriptions.subscribe(user.id, user.username, { months, paymentMethod: 'wallet' });
+			showSubscribeModal = false;
+			user = { ...user, is_subscribed: true, subscribers_count: (user.subscribers_count || 0) + 1 };
+			await loadPosts();
+			alert('Abonelik başarılı!');
+		} catch (err: any) {
+			const msg = err?.message || 'Abonelik başarısız';
+			if (msg.includes('bakiye') || msg.toLowerCase().includes('yetersiz')) {
+				if (confirm('Bakiyeniz yetersiz. Cüzdana gitmek ister misiniz?')) {
+					window.location.href = '/wallet';
+				}
+			} else {
+				alert(msg);
+			}
+		} finally {
+			subscribing = false;
+		}
 	}
 
 	onMount(() => {
@@ -153,7 +183,7 @@
 				<h1 class="text-2xl font-bold text-neutral-900 dark:text-white">
 					{user.display_name}
 				</h1>
-				{#if user.is_verified}
+				{#if user.is_verified_creator}
 					<Badge variant="primary">✓ Doğrulanmış</Badge>
 				{/if}
 			</div>
@@ -231,14 +261,6 @@
 
 	<!-- Subscribe Modal -->
 	{#if user}
-		<SubscribeModal
-			bind:open={showSubscribeModal}
-			{user}
-			on:subscribe={(e) => {
-				showSubscribeModal = false;
-				// Open payment modal
-				console.log('Subscribe:', e.detail);
-			}}
-		/>
+		<SubscribeModal bind:open={showSubscribeModal} {user} on:subscribe={doSubscribe} />
 	{/if}
 {/if}
