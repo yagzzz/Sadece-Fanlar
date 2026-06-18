@@ -155,10 +155,13 @@ class PublicPage(Base, SlugMixin):
 class AdSlotPosition(str, Enum):
     HEADER = "header"
     SIDEBAR = "sidebar"
-    FEED = "feed"
+    FEED = "feed"              # Akış içi (banner/video)
     FOOTER = "footer"
     PROFILE = "profile"
     POST = "post"
+    EXPLORE = "explore"            # Keşfet içi
+    EXPLORE_LEFT = "explore_left"  # Keşfet sol dikey
+    EXPLORE_RIGHT = "explore_right"  # Keşfet sağ dikey
 
 
 class AdSlot(Base):
@@ -228,6 +231,8 @@ class ReportType(str, Enum):
     UNDERAGE = "underage"
     IMPERSONATION = "impersonation"
     COPYRIGHT = "copyright"
+    FAKE_CONTENT = "fake_content"   # Sahte/çalıntı içerik
+    AI_CONTENT = "ai_content"       # Yapay zeka üretimi içerik
     OTHER = "other"
 
 

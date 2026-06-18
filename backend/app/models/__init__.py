@@ -12,6 +12,14 @@ from app.models.stream import Stream, StreamMessage
 from app.models.content import Attachment, UserBookmark, UserList, UserListMember
 from app.models.payment import PaymentRequest, Invoice
 from app.models.admin import Setting, PublicPage, AdSlot, FeaturedUser, Report
+from app.models.support import (
+    SupportTicket,
+    TicketMessage,
+    TicketStatus,
+    TicketCategory,
+    EscrowRequest,
+    EscrowStatus,
+)
 
 __all__ = [
     "Base",
@@ -25,4 +33,6 @@ __all__ = [
     "Attachment", "UserBookmark", "UserList", "UserListMember",
     "PaymentRequest", "Invoice",
     "Setting", "PublicPage", "AdSlot", "FeaturedUser", "Report",
+    "SupportTicket", "TicketMessage", "TicketStatus", "TicketCategory",
+    "EscrowRequest", "EscrowStatus",
 ]
