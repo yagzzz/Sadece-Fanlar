@@ -73,6 +73,20 @@ async def get_platform_settings(db: AsyncSession) -> Dict[str, Any]:
     return out
 
 
+async def get_setting(db: AsyncSession, key: str, default: Any = None) -> Any:
+    """Tek bir ayarı getirir (yoksa varsayılan)."""
+    result = await db.execute(select(Setting).where(Setting.key == key))
+    row = result.scalar_one_or_none()
+    if row is None:
+        return SETTING_DEFAULTS.get(key, default)
+    return _cast_value(key, row.value)
+
+
+async def get_fee_percent(db: AsyncSession) -> float:
+    """Geçerli platform komisyon yüzdesi (admin ayarından)."""
+    return float(await get_setting(db, "platform_fee_percent"))
+
+
 async def update_platform_settings(db: AsyncSession, updates: Dict[str, Any]) -> Dict[str, Any]:
     for key, value in updates.items():
         if key not in SETTING_DEFAULTS or value is None:

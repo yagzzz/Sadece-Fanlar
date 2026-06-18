@@ -9,13 +9,13 @@ export function cn(...inputs: ClassValue[]) {
 	return twMerge(clsx(inputs));
 }
 
-// Format currency
-export function formatCurrency(amount: number, currency = 'USD'): string {
+// Format currency (varsayılan: Türk Lirası)
+export function formatCurrency(amount: number, currency = 'TRY'): string {
 	return new Intl.NumberFormat('tr-TR', {
 		style: 'currency',
 		currency,
 		minimumFractionDigits: 2,
-	}).format(amount);
+	}).format(amount || 0);
 }
 
 // Format crypto amount

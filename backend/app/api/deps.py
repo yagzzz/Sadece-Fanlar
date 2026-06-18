@@ -142,6 +142,18 @@ async def get_current_admin(
     return current_user
 
 
+async def get_staff_user(
+    current_user: User = Depends(get_current_user)
+) -> User:
+    """Yönetici VEYA moderatör yetkisi gerektiren işlemler için."""
+    if current_user.role not in (UserRole.ADMIN, UserRole.MODERATOR):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Bu işlem için yetkili (admin/moderatör) olmanız gerekiyor",
+        )
+    return current_user
+
+
 # Alias for admin routes
 get_admin_user = get_current_admin
 

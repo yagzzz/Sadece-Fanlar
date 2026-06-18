@@ -34,6 +34,7 @@ class UserRole(str, Enum):
     USER: Normal kullanıcı
     """
     ADMIN = "admin"
+    MODERATOR = "moderator"
     CREATOR = "creator"
     USER = "user"
 

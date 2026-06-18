@@ -336,7 +336,9 @@ async def subscribe_to_user(
                 detail="Yetersiz bakiye"
             )
 
-        platform_fee = total_price * (settings.platform_fee_percent / 100)
+        from app.services.site_settings import get_fee_percent
+        fee_percent = await get_fee_percent(db)
+        platform_fee = total_price * (fee_percent / 100)
         net_amount = total_price - platform_fee
 
         wallet.balance -= total_price

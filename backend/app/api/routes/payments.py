@@ -33,6 +33,7 @@ from app.schemas.common import SuccessResponse
 from app.api.deps import get_current_user
 from app.services.monero import monero_service
 from app.services.btcpay import btcpay_service
+from app.services.site_settings import get_fee_percent
 
 router = APIRouter(prefix="/payments", tags=["Payments"])
 
@@ -301,7 +302,7 @@ async def _process_completed_payment(
     # Bahşiş / PPV / abonelik vb. - alıcıya (içerik üreticisine) öde
     if payment_request.recipient_id:
         amount = float(payment_request.amount_usd)
-        platform_fee = amount * (settings.platform_fee_percent / 100)
+        platform_fee = amount * (await get_fee_percent(db) / 100)
         net_amount = amount - platform_fee
 
         # Alıcının cüzdanına net tutarı yükle
@@ -421,7 +422,7 @@ async def send_tip(
             )
         
         # Process tip immediately
-        platform_fee = data.amount * (settings.platform_fee_percent / 100)
+        platform_fee = data.amount * (await get_fee_percent(db) / 100)
         net_amount = data.amount - platform_fee
         
         # Deduct from sender
@@ -623,7 +624,7 @@ async def unlock_post(
             )
         
         # Process unlock immediately
-        platform_fee = amount * (settings.platform_fee_percent / 100)
+        platform_fee = amount * (await get_fee_percent(db) / 100)
         net_amount = amount - platform_fee
         
         wallet.balance -= amount

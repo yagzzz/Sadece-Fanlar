@@ -209,32 +209,32 @@ class MoneroService:
         
         return tx_hash, fee
     
-    async def get_exchange_rate(self) -> float:
-        """Get current XMR/USD exchange rate"""
+    async def get_exchange_rate(self, vs_currency: str = "try") -> float:
+        """
+        XMR fiyatını verilen para biriminde döndürür (varsayılan: TRY).
+        Platform bakiyeleri TL tutulduğundan varsayılan 'try'.
+        """
+        fallback = {"try": 5000.0, "usd": 150.0}.get(vs_currency, 150.0)
         try:
             async with httpx.AsyncClient() as client:
-                # Use CoinGecko API (free, no API key needed)
                 response = await client.get(
                     "https://api.coingecko.com/api/v3/simple/price",
-                    params={
-                        "ids": "monero",
-                        "vs_currencies": "usd",
-                    },
+                    params={"ids": "monero", "vs_currencies": vs_currency},
                     timeout=10.0,
                 )
                 response.raise_for_status()
                 data = response.json()
-                return data.get("monero", {}).get("usd", 150.0)  # Default fallback
+                return data.get("monero", {}).get(vs_currency, fallback)
         except Exception:
-            return 150.0  # Fallback rate
-    
-    async def calculate_xmr_amount(self, usd_amount: float) -> Tuple[float, float]:
+            return fallback
+
+    async def calculate_xmr_amount(self, fiat_amount: float, vs_currency: str = "try") -> Tuple[float, float]:
         """
-        Calculate XMR amount for given USD
+        Verilen fiat tutar (varsayılan TL) için XMR miktarını hesaplar.
         Returns (xmr_amount, exchange_rate)
         """
-        rate = await self.get_exchange_rate()
-        xmr_amount = usd_amount / rate
+        rate = await self.get_exchange_rate(vs_currency)
+        xmr_amount = fiat_amount / rate if rate else 0
         return round(xmr_amount, 12), rate
 
 

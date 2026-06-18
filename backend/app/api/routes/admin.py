@@ -42,6 +42,7 @@ from app.api.deps import get_current_user, get_admin_user
 from app.services.monero import monero_service
 from app.services.btcpay import btcpay_service
 from app.services.site_settings import get_platform_settings, update_platform_settings
+from app.services import wallet_service
 
 router = APIRouter(prefix="/admin", tags=["Admin"])
 
@@ -726,6 +727,80 @@ async def reject_withdrawal(
     )
     
     return SuccessResponse(message="Çekim reddedildi")
+
+
+# ============ TEST / MANUEL BAKİYE ============
+
+@router.post("/credit")
+async def admin_credit_wallet(
+    payload: dict,
+    admin: User = Depends(get_admin_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Test/operasyon: bir kullanıcının cüzdanına TL bakiye ekler.
+    payload: { "username": "...", "amount": 100.0, "note": "..." }
+    Gerçek kripto göndermeden tüm para akışını denemek için kullanılır.
+    """
+    username = (payload.get("username") or "").lower().strip()
+    try:
+        amount = float(payload.get("amount") or 0)
+    except (TypeError, ValueError):
+        raise HTTPException(status_code=400, detail="Geçersiz tutar")
+    if amount <= 0:
+        raise HTTPException(status_code=400, detail="Tutar 0'dan büyük olmalı")
+
+    result = await db.execute(select(User).where(User.username == username))
+    user = result.scalar_one_or_none()
+    if not user:
+        raise HTTPException(status_code=404, detail="Kullanıcı bulunamadı")
+
+    await wallet_service.credit(
+        db,
+        user.id,
+        amount,
+        TransactionType.DEPOSIT,
+        description=payload.get("note") or "Manuel bakiye (admin)",
+    )
+
+    await log_admin_action(
+        db=db, admin_id=admin.id, action=AdminAction.UPDATE_SETTINGS,
+        target_type="wallet", target_id=user.id,
+        details={"amount": amount, "username": username},
+    )
+
+    wallet = await wallet_service.get_or_create_wallet(db, user.id)
+    return {"username": username, "balance": float(wallet.balance), "credited": amount}
+
+
+@router.put("/users/{user_id}/role")
+async def set_user_role(
+    user_id: UUID,
+    payload: dict,
+    admin: User = Depends(get_admin_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Kullanıcı rolünü değiştir (user, creator, moderator, admin)."""
+    new_role = (payload.get("role") or "").lower().strip()
+    valid = {r.value for r in UserRole}
+    if new_role not in valid:
+        raise HTTPException(status_code=400, detail=f"Geçersiz rol. Geçerli: {', '.join(valid)}")
+
+    result = await db.execute(select(User).where(User.id == user_id))
+    user = result.scalar_one_or_none()
+    if not user:
+        raise HTTPException(status_code=404, detail="Kullanıcı bulunamadı")
+
+    user.role = UserRole(new_role)
+    if new_role in ("moderator", "admin", "creator"):
+        user.is_creator = user.is_creator or new_role == "creator"
+    await db.commit()
+
+    await log_admin_action(
+        db=db, admin_id=admin.id, action=AdminAction.UPDATE_USER,
+        target_type="user", target_id=user.id, details={"role": new_role},
+    )
+    return {"id": str(user.id), "username": user.username, "role": new_role}
 
 
 # ============ SITE SETTINGS ============
