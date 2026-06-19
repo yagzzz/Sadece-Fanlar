@@ -113,6 +113,22 @@ async def my_escrows(
     return {"items": [_dict(e) for e in rows]}
 
 
+@router.get("/disputes")
+async def list_disputes(
+    staff: User = Depends(get_staff_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Yönetici/moderatör: anlaşmazlıktaki tüm emanet isteklerini listeler."""
+    rows = (
+        await db.execute(
+            select(EscrowRequest)
+            .where(EscrowRequest.status == EscrowStatus.DISPUTED)
+            .order_by(EscrowRequest.created_at.desc())
+        )
+    ).scalars().all()
+    return {"items": [_dict(e) for e in rows]}
+
+
 async def _get_owned(db, escrow_id: UUID, user: User) -> EscrowRequest:
     e = (await db.execute(select(EscrowRequest).where(EscrowRequest.id == escrow_id))).scalar_one_or_none()
     if not e:

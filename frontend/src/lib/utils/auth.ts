@@ -19,6 +19,12 @@ export function waitForAuth(): Promise<void> {
 	});
 }
 
+/** Yalnızca admin. */
 export function isAdmin(user: { role?: string } | null | undefined): boolean {
+	return user?.role === 'admin';
+}
+
+/** Admin veya moderatör (yönetim paneli erişimi). */
+export function isStaff(user: { role?: string } | null | undefined): boolean {
 	return user?.role === 'admin' || user?.role === 'moderator';
 }

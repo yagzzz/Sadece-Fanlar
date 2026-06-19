@@ -12,3 +12,4 @@ export { default as Dropdown } from './dropdown/Dropdown.svelte';
 export { default as Textarea } from './textarea/Textarea.svelte';
 export { default as Switch } from './switch/Switch.svelte';
 export { default as Toast } from './toast/Toast.svelte';
+export { default as Icon } from './icon/Icon.svelte';

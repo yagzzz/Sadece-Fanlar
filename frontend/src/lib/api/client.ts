@@ -534,6 +534,21 @@ export const adminApi = {
 	credit: (username: string, amount: number, note?: string) =>
 		unwrap(api.post('/admin/credit', { username, amount, note })),
 	setRole: (userId: string, role: string) => unwrap(api.put(`/admin/users/${userId}/role`, { role })),
+	listUsers: async (params?: { page?: number; search?: string }) => {
+		const q = new URLSearchParams();
+		q.set('page', String(params?.page ?? 1));
+		if (params?.search) q.set('search', params.search);
+		return unwrap(api.get(`/admin/users?${q.toString()}`));
+	},
+	banUser: (userId: string, reason: string) => unwrap(api.post(`/admin/users/${userId}/ban`, { reason })),
+	unbanUser: (userId: string) => unwrap(api.post(`/admin/users/${userId}/unban`)),
+	listWithdrawals: async (statusFilter?: string) => {
+		const d: any = await unwrap(api.get(`/admin/withdrawals${statusFilter ? `?status_filter=${statusFilter}` : ''}`));
+		return d?.items ?? [];
+	},
+	approveWithdrawal: (id: string) => unwrap(api.post(`/admin/withdrawals/${id}/approve`)),
+	rejectWithdrawal: (id: string, reason: string) =>
+		unwrap(api.post(`/admin/withdrawals/${id}/reject?reason=${encodeURIComponent(reason)}`)),
 };
 
 // Reports
@@ -582,6 +597,7 @@ export const adminApi = {
 	cancel: (id: string) => unwrap(api.post(`/escrow/${id}/cancel`)),
 	dispute: (id: string, reason: string) => unwrap(api.post(`/escrow/${id}/dispute`, { reason })),
 	resolve: (id: string, action: string) => unwrap(api.post(`/escrow/${id}/resolve?action=${action}`)),
+	disputes: async () => { const d: any = await unwrap(api.get('/escrow/disputes')); return d?.items ?? []; },
 };
 
 // Screenshot flag

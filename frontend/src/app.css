@@ -5,49 +5,51 @@
 @tailwind utilities;
 
 @layer base {
+	/* Tek, tutarlı marka sistemi: nötr yüzeyler + gül (rose) vurgu.
+	   Tüm token'lar aynı hue ailesinde; bg-primary / text-primary-* / ring uyumlu. */
 	:root {
 		--background: 0 0% 100%;
-		--foreground: 222.2 84% 4.9%;
+		--foreground: 240 10% 4%;
 		--card: 0 0% 100%;
-		--card-foreground: 222.2 84% 4.9%;
+		--card-foreground: 240 10% 4%;
 		--popover: 0 0% 100%;
-		--popover-foreground: 222.2 84% 4.9%;
-		--primary: 221.2 83.2% 53.3%;
-		--primary-foreground: 210 40% 98%;
-		--secondary: 210 40% 96.1%;
-		--secondary-foreground: 222.2 47.4% 11.2%;
-		--muted: 210 40% 96.1%;
-		--muted-foreground: 215.4 16.3% 46.9%;
-		--accent: 24.6 95% 53.1%;
-		--accent-foreground: 222.2 47.4% 11.2%;
-		--destructive: 0 84.2% 60.2%;
-		--destructive-foreground: 210 40% 98%;
-		--border: 214.3 31.8% 91.4%;
-		--input: 214.3 31.8% 91.4%;
-		--ring: 221.2 83.2% 53.3%;
-		--radius: 0.5rem;
+		--popover-foreground: 240 10% 4%;
+		--primary: 346 77% 49.8%;
+		--primary-foreground: 0 0% 100%;
+		--secondary: 240 5% 96%;
+		--secondary-foreground: 240 6% 10%;
+		--muted: 240 5% 96%;
+		--muted-foreground: 240 4% 46%;
+		--accent: 346 77% 49.8%;
+		--accent-foreground: 0 0% 100%;
+		--destructive: 0 72% 51%;
+		--destructive-foreground: 0 0% 100%;
+		--border: 240 6% 90%;
+		--input: 240 6% 90%;
+		--ring: 346 77% 49.8%;
+		--radius: 0.65rem;
 	}
 
 	.dark {
-		--background: 222.2 84% 4.9%;
-		--foreground: 210 40% 98%;
-		--card: 222.2 84% 4.9%;
-		--card-foreground: 210 40% 98%;
-		--popover: 222.2 84% 4.9%;
-		--popover-foreground: 210 40% 98%;
-		--primary: 221.2 83.2% 53.3%;
-		--primary-foreground: 222.2 47.4% 11.2%;
-		--secondary: 217.2 32.6% 17.5%;
-		--secondary-foreground: 210 40% 98%;
-		--muted: 217.2 32.6% 17.5%;
-		--muted-foreground: 215 20.2% 65.1%;
-		--accent: 24.6 95% 53.1%;
-		--accent-foreground: 210 40% 98%;
-		--destructive: 0 62.8% 30.6%;
-		--destructive-foreground: 210 40% 98%;
-		--border: 217.2 32.6% 17.5%;
-		--input: 217.2 32.6% 17.5%;
-		--ring: 221.2 83.2% 53.3%;
+		--background: 240 10% 4%;
+		--foreground: 0 0% 98%;
+		--card: 240 8% 7%;
+		--card-foreground: 0 0% 98%;
+		--popover: 240 8% 7%;
+		--popover-foreground: 0 0% 98%;
+		--primary: 346 82% 58%;
+		--primary-foreground: 0 0% 100%;
+		--secondary: 240 4% 14%;
+		--secondary-foreground: 0 0% 98%;
+		--muted: 240 4% 14%;
+		--muted-foreground: 240 5% 65%;
+		--accent: 346 82% 58%;
+		--accent-foreground: 0 0% 100%;
+		--destructive: 0 62% 45%;
+		--destructive-foreground: 0 0% 98%;
+		--border: 240 4% 15%;
+		--input: 240 4% 15%;
+		--ring: 346 82% 58%;
 	}
 }
 
@@ -133,7 +135,7 @@
 
 @layer utilities {
 	.text-gradient {
-		@apply bg-gradient-to-r from-primary-400 via-primary-500 to-accent bg-clip-text text-transparent;
+		@apply bg-gradient-to-r from-primary-500 to-primary-700 bg-clip-text text-transparent;
 	}
 
 	.glass {
