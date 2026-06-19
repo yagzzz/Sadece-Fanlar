@@ -5,9 +5,14 @@
 - `single_view=True` ise her izleyici içeriği yalnızca BİR KEZ açabilir.
 - `subscribers_only=True` ise yalnızca aktif aboneler görebilir.
 """
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional, List
 from uuid import UUID
+
+
+def _utcnow() -> datetime:
+    """Timezone-aware UTC now (DB timestamptz ile güvenli karşılaştırma için)."""
+    return datetime.now(timezone.utc)
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field
@@ -57,7 +62,7 @@ async def _has_active_sub(db: AsyncSession, subscriber_id: UUID, creator_id: UUI
                 Subscription.subscriber_id == subscriber_id,
                 Subscription.creator_id == creator_id,
                 Subscription.status == SubscriptionStatus.ACTIVE,
-                Subscription.expires_at > datetime.utcnow(),
+                Subscription.expires_at > _utcnow(),
             )
         ).limit(1)
     )
@@ -81,7 +86,7 @@ async def create_story(
         caption=data.caption,
         is_single_view=data.single_view,
         subscribers_only=data.subscribers_only,
-        expires_at=datetime.utcnow() + timedelta(hours=data.duration_hours),
+        expires_at=_utcnow() + timedelta(hours=data.duration_hours),
     )
     db.add(story)
     await db.commit()
@@ -98,7 +103,7 @@ async def list_stories(
     Aktif (süresi dolmamış) hikayeleri üreticiye göre gruplar.
     Tek görüntülük + izlenmiş hikayeler 'viewed=true' işaretlenir (önizlemede gri halka).
     """
-    now = datetime.utcnow()
+    now = _utcnow()
     rows = (
         await db.execute(
             select(Story, User)
@@ -152,7 +157,7 @@ async def view_story(
     s = (await db.execute(select(Story).where(Story.id == story_id))).scalar_one_or_none()
     if not s:
         raise HTTPException(status_code=404, detail="Hikaye bulunamadı")
-    if s.expires_at <= datetime.utcnow():
+    if s.expires_at <= _utcnow():
         raise HTTPException(status_code=410, detail="Hikayenin süresi dolmuş")
 
     creator = (await db.execute(select(User).where(User.id == s.creator_id))).scalar_one_or_none()
