@@ -63,7 +63,8 @@ if [ ! -f .env ]; then
 DB_PASSWORD=${DB_PASS}
 REDIS_PASSWORD=${REDIS_PASS}
 SECRET_KEY=${SECRET}
-ENVIRONMENT=development
+ENVIRONMENT=production
+DEBUG=false
 CORS_ORIGINS=https://${SERVER_IP},http://${SERVER_IP}
 PUBLIC_API_URL=https://${SERVER_IP}
 PUBLIC_WS_URL=wss://${SERVER_IP}
