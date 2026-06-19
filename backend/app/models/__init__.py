@@ -21,6 +21,7 @@ from app.models.support import (
     EscrowStatus,
 )
 from app.models.story import Story, StoryView, StoryMediaType
+from app.models.advertisement import Advertisement, AdType
 
 __all__ = [
     "Base",
@@ -37,4 +38,5 @@ __all__ = [
     "SupportTicket", "TicketMessage", "TicketStatus", "TicketCategory",
     "EscrowRequest", "EscrowStatus",
     "Story", "StoryView", "StoryMediaType",
+    "Advertisement", "AdType",
 ]

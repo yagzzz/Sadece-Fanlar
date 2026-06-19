@@ -585,16 +585,25 @@ export const adminApi = {
 
 // Ads
 (api as any).ads = {
-	list: async (position: string) => {
+	list: async (placement: string) => {
 		try {
-			const data: any = await unwrap(api.get(`/ads?position=${position}`));
+			const data: any = await unwrap(api.get(`/ads?placement=${placement}`));
 			return data?.items ?? [];
 		} catch {
 			return [];
 		}
 	},
+	preroll: async () => {
+		try {
+			const data: any = await unwrap(api.get('/ads/preroll'));
+			return data?.ad ?? null;
+		} catch {
+			return null;
+		}
+	},
+	impression: (id: string) => unwrap(api.post(`/ads/${id}/impression`)).catch(() => {}),
 	click: (id: string) => unwrap(api.post(`/ads/${id}/click`)),
-	all: () => unwrap(api.get('/ads/all')),
+	all: async () => { const d: any = await unwrap(api.get('/ads/all')); return d?.items ?? d ?? []; },
 	create: (data: any) => unwrap(api.post('/ads', data)),
 	update: (id: string, data: any) => unwrap(api.put(`/ads/${id}`, data)),
 	remove: (id: string) => unwrap(api.delete(`/ads/${id}`)),

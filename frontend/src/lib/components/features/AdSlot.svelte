@@ -2,15 +2,20 @@
 	import { onMount } from 'svelte';
 	import { api } from '$lib/api';
 
-	export let position: string;
+	// Geriye dönük uyum: hem position hem placement kabul et
+	export let position: string = '';
+	export let placement: string = '';
 	export let vertical = false;
 	let className = '';
 	export { className as class };
 
+	$: slot = placement || position;
+
 	let ads: any[] = [];
 
 	onMount(async () => {
-		ads = await (api as any).ads.list(position);
+		if (!slot) return;
+		ads = await (api as any).ads.list(slot);
 	});
 
 	function handleClick(ad: any) {
@@ -23,9 +28,9 @@
 	<div class={className}>
 		{#each ads as ad (ad.id)}
 			<div
-				class="relative overflow-hidden rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 cursor-pointer {vertical ? 'mb-4' : 'mb-4'}"
-				on:click={() => handleClick(ad)}
-				on:keydown={(e) => e.key === 'Enter' && handleClick(ad)}
+				class="relative overflow-hidden rounded-xl border border-border bg-card {ad.link_url ? 'cursor-pointer' : ''} mb-4"
+				on:click={() => ad.link_url && handleClick(ad)}
+				on:keydown={(e) => e.key === 'Enter' && ad.link_url && handleClick(ad)}
 				role="button"
 				tabindex="0"
 			>
@@ -34,14 +39,18 @@
 					Reklam
 				</span>
 
-				{#if ad.content_html}
-					{@html ad.content_html}
-				{:else if ad.image_url && (ad.image_url.endsWith('.mp4') || ad.image_url.endsWith('.webm'))}
-					<video src={ad.image_url} autoplay muted loop playsinline class="w-full {vertical ? 'h-96 object-cover' : 'h-auto'}"></video>
-				{:else if ad.image_url}
-					<img src={ad.image_url} alt={ad.name} class="w-full {vertical ? 'h-96 object-cover' : 'h-auto'}" />
+				{#if ad.ad_type === 'video' && ad.media_url}
+					<video src={ad.media_url} autoplay muted loop playsinline class="w-full {vertical ? 'h-96 object-cover' : 'h-auto'}"></video>
+				{:else if ad.ad_type === 'image' && ad.media_url}
+					<img src={ad.media_url} alt={ad.title} class="w-full {vertical ? 'h-96 object-cover' : 'h-auto'}" />
+				{:else if ad.ad_type === 'text'}
+					<div class="p-5">
+						<p class="font-semibold text-sm mb-1">{ad.title}</p>
+						{#if ad.text_content}<p class="text-sm text-muted-foreground">{ad.text_content}</p>{/if}
+						{#if ad.link_url}<p class="text-xs text-primary mt-2">Daha fazla →</p>{/if}
+					</div>
 				{:else}
-					<div class="p-6 text-center text-sm text-neutral-500">{ad.name}</div>
+					<div class="p-6 text-center text-sm text-muted-foreground">{ad.title}</div>
 				{/if}
 			</div>
 		{/each}

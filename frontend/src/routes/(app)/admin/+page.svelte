@@ -29,7 +29,10 @@
 	let bulkAmount = 10000;
 	let bulkSet = false;
 	// Reklam formu
-	let adForm = { title: '', position: 'feed', media_url: '', target_url: '', is_video: false, active: true };
+	let adForm = {
+		title: '', ad_type: 'image', placement: 'feed', media_url: '', text_content: '',
+		link_url: '', display_percent: 100, target_audience: 'all', skip_after: 3, is_active: true
+	};
 	// Kullanıcı arama
 	let userSearch = '';
 
@@ -121,9 +124,14 @@
 		catch (e: any) { error = e?.message; }
 	}
 	async function createAd() {
-		if (!adForm.title || !adForm.media_url) { error = 'Başlık ve görsel/medya adresi gerekli'; return; }
-		try { await api.ads.create({ ...adForm }); adForm = { title: '', position: 'feed', media_url: '', target_url: '', is_video: false, active: true }; ads = await api.ads.all(); flash('Reklam eklendi'); }
-		catch (e: any) { error = e?.message; }
+		if (!adForm.title) { error = 'Başlık gerekli'; return; }
+		if (adForm.ad_type !== 'text' && !adForm.media_url) { error = 'Görsel/video adresi gerekli'; return; }
+		try {
+			await api.ads.create({ ...adForm, display_percent: Number(adForm.display_percent) || 100, skip_after: Number(adForm.skip_after) || 3 });
+			adForm = { title: '', ad_type: 'image', placement: 'feed', media_url: '', text_content: '', link_url: '', display_percent: 100, target_audience: 'all', skip_after: 3, is_active: true };
+			ads = await api.ads.all();
+			flash('Reklam eklendi');
+		} catch (e: any) { error = e?.message; }
 	}
 	async function removeAd(id: string) {
 		try { await api.ads.remove(id); ads = ads.filter((a) => a.id !== id); flash('Reklam silindi'); }
@@ -272,29 +280,60 @@
 
 			{:else if tab === 'ads'}
 				<div class="rounded-xl border border-border bg-card p-4 space-y-3">
-					<p class="font-medium text-sm">Yeni reklam</p>
+					<p class="font-medium text-sm">Yeni reklam (özel — Google Ads değil)</p>
 					<Input bind:value={adForm.title} placeholder="Başlık" />
-					<Input bind:value={adForm.media_url} placeholder="Görsel/video URL" />
-					<Input bind:value={adForm.target_url} placeholder="Hedef bağlantı (tıklayınca)" />
-					<div class="flex items-center gap-4 text-sm">
-						<label class="flex items-center gap-2">Konum
-							<select bind:value={adForm.position} class="input h-9 w-auto">
-								<option value="feed">Akış</option>
-								<option value="explore">Keşfet</option>
-								<option value="explore_left">Keşfet sol</option>
-								<option value="explore_right">Keşfet sağ</option>
+					<div class="grid grid-cols-2 gap-2 text-sm">
+						<label class="flex flex-col gap-1">Tür
+							<select bind:value={adForm.ad_type} class="input h-9">
+								<option value="image">Resim</option>
+								<option value="video">Video</option>
+								<option value="text">Metin</option>
 							</select>
 						</label>
-						<label class="flex items-center gap-2"><input type="checkbox" bind:checked={adForm.is_video} /> Video</label>
+						<label class="flex flex-col gap-1">Yerleşim
+							<select bind:value={adForm.placement} class="input h-9">
+								<option value="feed">Akış</option>
+								<option value="explore">Keşfet üst</option>
+								<option value="explore_left">Keşfet sol</option>
+								<option value="explore_right">Keşfet sağ</option>
+								<option value="sidebar">Kenar çubuğu</option>
+								<option value="preroll">Video öncesi (pre-roll)</option>
+							</select>
+						</label>
 					</div>
+					{#if adForm.ad_type !== 'text'}
+						<Input bind:value={adForm.media_url} placeholder={adForm.ad_type === 'video' ? 'Video URL (mp4/webm)' : 'Görsel URL'} />
+					{/if}
+					{#if adForm.ad_type === 'text'}
+						<Input bind:value={adForm.text_content} placeholder="Metin içeriği" />
+					{/if}
+					<Input bind:value={adForm.link_url} placeholder="Hedef bağlantı (tıklanınca, opsiyonel)" />
+					<div class="grid grid-cols-2 gap-2 text-sm">
+						<label class="flex flex-col gap-1">Gösterim oranı (%)
+							<Input type="number" bind:value={adForm.display_percent} placeholder="100" />
+						</label>
+						<label class="flex flex-col gap-1">Kitle
+							<select bind:value={adForm.target_audience} class="input h-9">
+								<option value="all">Herkes</option>
+								<option value="guests">Misafirler</option>
+								<option value="subscribers">Üyeler</option>
+								<option value="creators">Üreticiler</option>
+							</select>
+						</label>
+					</div>
+					{#if adForm.placement === 'preroll'}
+						<label class="flex flex-col gap-1 text-sm">Kaç saniye sonra atlanabilir
+							<Input type="number" bind:value={adForm.skip_after} placeholder="3" />
+						</label>
+					{/if}
 					<Button size="sm" on:click={createAd}>Ekle</Button>
 				</div>
 				<div class="space-y-3 mt-3">
 					{#each ads as a}
 						<div class="rounded-xl border border-border bg-card p-4 flex items-center justify-between gap-3">
 							<div class="min-w-0">
-								<p class="font-medium text-sm truncate">{a.title}</p>
-								<p class="text-xs text-muted-foreground">{a.position} · {a.is_active ?? a.active ? 'aktif' : 'pasif'} · {a.impressions ?? 0} gösterim · {a.clicks ?? 0} tık</p>
+								<p class="font-medium text-sm truncate">{a.title} <span class="text-xs text-muted-foreground">[{a.ad_type}]</span></p>
+								<p class="text-xs text-muted-foreground">{a.placement} · %{a.display_percent} · {a.target_audience} · {a.is_active ? 'aktif' : 'pasif'} · {a.impressions ?? 0} gösterim · {a.clicks ?? 0} tık</p>
 							</div>
 							<Button size="sm" variant="danger" on:click={() => removeAd(a.id)}>Sil</Button>
 						</div>

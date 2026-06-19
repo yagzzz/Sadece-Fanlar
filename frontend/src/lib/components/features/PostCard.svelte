@@ -2,6 +2,7 @@
 	import { cn, formatCurrency, timeAgo } from '$lib/utils';
 	import { Avatar, Badge, Button, Dropdown } from '$lib/components/ui';
 	import Watermark from './Watermark.svelte';
+	import VideoPlayer from './VideoPlayer.svelte';
 	import ReportModal from './ReportModal.svelte';
 	import type { Post } from '$lib/types';
 	import { createEventDispatcher } from 'svelte';
@@ -134,14 +135,11 @@
 			{:else}
 				<!-- Unlocked media carousel -->
 				{#if post.media[currentMediaIndex].type === 'video'}
-					<video
+					<VideoPlayer
 						src={post.media[currentMediaIndex].url}
-						controls
-						class="w-full h-full object-contain bg-black"
 						poster={post.media[currentMediaIndex].thumbnail_url}
-					>
-						<track kind="captions" />
-					</video>
+						freeContent={!(post.is_ppv || post.is_premium)}
+					/>
 				{:else}
 					<img
 						src={post.media[currentMediaIndex].url}
