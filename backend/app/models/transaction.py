@@ -123,16 +123,17 @@ class Transaction(Base):
     type: Mapped[TransactionType] = mapped_column(SQLEnum(TransactionType), nullable=False)    # İşlem türü
     status: Mapped[TransactionStatus] = mapped_column(SQLEnum(TransactionStatus), default=TransactionStatus.PENDING)  # Durum
     
-    # Tutarlar
-    amount: Mapped[float] = mapped_column(Numeric(12, 2), nullable=False)      # Brüt tutar
-    fee: Mapped[float] = mapped_column(Numeric(12, 2), default=0)              # Platform komisyonu
-    net_amount: Mapped[float] = mapped_column(Numeric(12, 2), nullable=False)  # Net tutar (komisyon düşülmüş)
-    currency: Mapped[str] = mapped_column(String(10), default="USD")           # Para birimi
+    # Tutarlar (asdecimal=False: tüm para kodu float aritmetiği kullanır;
+    # Decimal/float karışımı kaynaklı TypeError çökmelerini önler)
+    amount: Mapped[float] = mapped_column(Numeric(12, 2, asdecimal=False), nullable=False)      # Brüt tutar
+    fee: Mapped[float] = mapped_column(Numeric(12, 2, asdecimal=False), default=0)              # Platform komisyonu
+    net_amount: Mapped[float] = mapped_column(Numeric(12, 2, asdecimal=False), nullable=False)  # Net tutar (komisyon düşülmüş)
+    currency: Mapped[str] = mapped_column(String(10), default="TRY")           # Para birimi
     
     # Kripto para detayları
-    crypto_amount: Mapped[Optional[float]] = mapped_column(Numeric(18, 8))     # Kripto miktarı
+    crypto_amount: Mapped[Optional[float]] = mapped_column(Numeric(18, 8, asdecimal=False))     # Kripto miktarı
     crypto_currency: Mapped[Optional[str]] = mapped_column(String(10))         # Kripto para birimi (XMR, BTC, vb.)
-    exchange_rate: Mapped[Optional[float]] = mapped_column(Numeric(18, 8))     # İşlem anındaki kur
+    exchange_rate: Mapped[Optional[float]] = mapped_column(Numeric(18, 8, asdecimal=False))     # İşlem anındaki kur
     
     # Ödeme bilgileri
     payment_method: Mapped[PaymentMethod] = mapped_column(SQLEnum(PaymentMethod))  # Ödeme yöntemi
@@ -178,19 +179,19 @@ class Withdrawal(Base):
     # Talebi oluşturan kullanıcı
     user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
     
-    # Tutarlar
-    amount: Mapped[float] = mapped_column(Numeric(12, 2), nullable=False)      # Talep edilen tutar
-    fee: Mapped[float] = mapped_column(Numeric(12, 2), default=0)              # İşlem ücreti
-    net_amount: Mapped[float] = mapped_column(Numeric(12, 2), nullable=False)  # Net gönderilecek tutar
-    
+    # Tutarlar (asdecimal=False: float tutarlılığı, Decimal/float çökmesi önlenir)
+    amount: Mapped[float] = mapped_column(Numeric(12, 2, asdecimal=False), nullable=False)      # Talep edilen tutar
+    fee: Mapped[float] = mapped_column(Numeric(12, 2, asdecimal=False), default=0)              # İşlem ücreti
+    net_amount: Mapped[float] = mapped_column(Numeric(12, 2, asdecimal=False), nullable=False)  # Net gönderilecek tutar
+
     # Kripto ödeme bilgileri
     payment_method: Mapped[PaymentMethod] = mapped_column(SQLEnum(PaymentMethod), nullable=False)  # Hangi kripto
     payout_address: Mapped[str] = mapped_column(String(200), nullable=False)   # Cüzdan adresi
-    
+
     # Blockchain işlem detayları
     tx_hash: Mapped[Optional[str]] = mapped_column(String(255))               # İşlem hash'i
-    crypto_amount: Mapped[Optional[float]] = mapped_column(Numeric(18, 8))    # Gönderilen kripto miktarı
-    exchange_rate: Mapped[Optional[float]] = mapped_column(Numeric(18, 8))    # Çevirme kuru
+    crypto_amount: Mapped[Optional[float]] = mapped_column(Numeric(18, 8, asdecimal=False))    # Gönderilen kripto miktarı
+    exchange_rate: Mapped[Optional[float]] = mapped_column(Numeric(18, 8, asdecimal=False))    # Çevirme kuru
     
     # Durum
     status: Mapped[WithdrawalStatus] = mapped_column(SQLEnum(WithdrawalStatus), default=WithdrawalStatus.PENDING)

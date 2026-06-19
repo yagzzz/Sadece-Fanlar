@@ -137,7 +137,7 @@ async def _check_monero_deposits() -> int:
     from sqlalchemy import select
     from app.core.database import async_session_maker
     from app.models.payment import PaymentRequest, PaymentRequestStatus, PaymentRequestType
-    from app.models.transaction import PaymentMethod, TransactionType
+    from app.models.transaction import PaymentMethod, TransactionType, Transaction
     from app.services.monero import monero_service
     from app.services import wallet_service
 
@@ -161,20 +161,54 @@ async def _check_monero_deposits() -> int:
                 logger.warning("Monero check failed for %s: %s", pr.id, e)
                 continue
 
-            if info.get("received") and info.get("confirmed"):
-                # TL tutarını kredi et (amount_usd alanı TL tutarını tutar)
-                await wallet_service.credit(
-                    session,
-                    pr.user_id,
-                    float(pr.amount_usd),
-                    TransactionType.DEPOSIT,
-                    description="Monero ile bakiye yükleme",
-                    payment_method=PaymentMethod.MONERO,
-                    payment_id=info.get("tx_hash"),
-                    commit=False,
+            if not (info.get("received") and info.get("confirmed")):
+                continue
+
+            # GÜVENLİK: İstenen TL tutarını değil, GERÇEKTEN alınan XMR'nin TL
+            # karşılığını kredi et. Böylece eksik ödeme ile fazla bakiye alınamaz.
+            # Kur, istek anında kilitlenen kur (pr.exchange_rate) ile sabittir;
+            # fiyat dalgalanması istismarı engellenir.
+            received_xmr = float(info.get("amount") or 0.0)
+            locked_rate = float(pr.exchange_rate or 0.0)
+            if locked_rate <= 0:
+                # Kur yoksa anlık kuru kullan (nadiren olur)
+                locked_rate = await monero_service.get_exchange_rate("try")
+
+            credited_try = round(received_xmr * locked_rate, 2)
+            if credited_try <= 0:
+                continue
+
+            # İstenenden fazla gönderildiyse istenen tutarı aşmasına izin ver
+            # (kullanıcı lehine), ancak negatif/sıfır engellendi.
+            tx_hash = info.get("tx_hash") or pr.monero_payment_id
+
+            # İdempotanlık: Aynı tx_hash ile daha önce DEPOSIT işlenmişse atla.
+            existing = await session.execute(
+                select(Transaction).where(
+                    Transaction.type == TransactionType.DEPOSIT,
+                    Transaction.payment_id == tx_hash,
                 )
+            )
+            if existing.scalar_one_or_none() is not None:
                 pr.status = PaymentRequestStatus.COMPLETED
-                credited += 1
+                continue
+
+            await wallet_service.credit(
+                session,
+                pr.user_id,
+                credited_try,
+                TransactionType.DEPOSIT,
+                description=f"Monero ile bakiye yükleme ({received_xmr:.6f} XMR)",
+                payment_method=PaymentMethod.MONERO,
+                payment_id=tx_hash,
+                commit=False,
+            )
+            pr.status = PaymentRequestStatus.COMPLETED
+            pr.tx_hash = tx_hash
+            pr.confirmations = int(info.get("confirmations") or 0)
+            pr.confirmed_at = datetime.utcnow()
+            pr.amount_crypto = received_xmr
+            credited += 1
 
         if credited:
             await session.commit()

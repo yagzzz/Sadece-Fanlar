@@ -35,11 +35,7 @@ else
   cd "$APP_DIR"
 fi
 
-echo "==> Geliştirme volume mount'ları kaldırılıyor (production)"
-sed -i '/- \.\/backend:\/app/d' docker-compose.yml
-sed -i '/- \.\/frontend:\/app/d' docker-compose.yml
-sed -i '/- \/app\/node_modules/d' docker-compose.yml
-sed -i '/- \.\/backend:\/app/d' docker-compose.yml 2>/dev/null || true
+echo "==> docker-compose.yml artık production-ready (sed gerekmez)"
 
 echo "==> Redis healthcheck düzeltmesi"
 python3 - <<'PY'

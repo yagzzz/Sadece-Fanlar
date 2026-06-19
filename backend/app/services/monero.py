@@ -118,8 +118,12 @@ class MoneroService:
     
     async def check_payment(self, payment_id: str) -> dict:
         """
-        Check if a payment with given payment_id has been received
-        Returns payment details if found
+        Verilen payment_id için gelen TÜM ödemeleri toplar.
+
+        Tek bir payment_id'ye birden fazla transfer gelebilir; hepsini toplayıp
+        toplam alınan XMR'yi döndürür. Onay sayısı, en yeni (en az onaylı) ödemeye
+        göre hesaplanır (muhafazakar): hepsi yeterince onaylanmadan "confirmed"
+        sayılmaz. Bu, eksik/parçalı ödeme istismarını ve erken kredilemeyi önler.
         """
         await self.open_wallet()
         
@@ -131,28 +135,35 @@ class MoneroService:
         if not payments:
             return {
                 "received": False,
-                "amount": 0,
+                "amount": 0.0,
                 "confirmations": 0,
+                "confirmed": False,
+                "tx_hash": "",
             }
         
-        # Get the latest payment
-        payment = payments[-1]
-        amount = payment.get("amount", 0) / 1e12
-        block_height = payment.get("block_height", 0)
-        tx_hash = payment.get("tx_hash", "")
+        # Tüm ödemeleri topla (atomic units -> XMR)
+        total_atomic = sum(int(p.get("amount", 0)) for p in payments)
+        total_amount = total_atomic / 1e12
+        tx_hashes = [p.get("tx_hash", "") for p in payments if p.get("tx_hash")]
         
-        # Get current height for confirmations
+        # Onay sayısı: en yeni ödemeye göre (en yüksek block_height = en az onay)
         height_result = await self._rpc_call("get_height")
         current_height = height_result.get("height", 0)
-        confirmations = current_height - block_height if block_height > 0 else 0
+        block_heights = [int(p.get("block_height", 0)) for p in payments if int(p.get("block_height", 0)) > 0]
+        if block_heights:
+            newest_block = max(block_heights)
+            confirmations = max(0, current_height - newest_block)
+        else:
+            # Henüz bloğa girmemiş (mempool)
+            confirmations = 0
         
         return {
             "received": True,
-            "amount": amount,
+            "amount": round(total_amount, 12),
             "confirmations": confirmations,
             "confirmed": confirmations >= self.confirmations_required,
-            "tx_hash": tx_hash,
-            "block_height": block_height,
+            "tx_hash": tx_hashes[-1] if tx_hashes else "",
+            "tx_hashes": tx_hashes,
         }
     
     async def check_incoming_transfers(self, subaddress_index: Optional[int] = None) -> list:

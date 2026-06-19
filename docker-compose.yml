@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   # ============================================
   # DATABASE & CACHE
@@ -79,7 +77,15 @@ services:
       redis:
         condition: service_healthy
     restart: unless-stopped
-    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/health').status==200 else 1)\""]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    # PROD: --reload kapalı (tek uvicorn süreci; WS/real-time tutarlılığı korunur).
+    # Kod güncellemesi: git pull + docker compose restart backend
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000
 
   # ============================================
   # BACKGROUND WORKERS (Celery)
@@ -124,11 +130,13 @@ services:
       - MONERO_WALLET_RPC_PASSWORD=${MONERO_WALLET_RPC_PASSWORD:?MONERO_WALLET_RPC_PASSWORD gerekli}
     volumes:
       - ./backend:/app
+      - celerybeat_data:/var/lib/celerybeat
     depends_on:
       - postgres
       - redis
     restart: unless-stopped
-    command: celery -A app.worker beat --loglevel=info
+    # Schedule dosyası /app'e yazılamıyor (Errno 13); kalıcı writable hacme yaz.
+    command: celery -A app.worker beat --loglevel=info --schedule=/var/lib/celerybeat/celerybeat-schedule --pidfile=
 
   # ============================================
   # FRONTEND
@@ -142,9 +150,9 @@ services:
       - PUBLIC_API_URL=${PUBLIC_API_URL:-http://localhost:8000}
       - PUBLIC_WS_URL=${PUBLIC_WS_URL:-ws://localhost:8000}
       - ORIGIN=${ORIGIN:-http://localhost:3000}
-    volumes:
-      - ./frontend:/app
-      - /app/node_modules
+      - NODE_ENV=production
+    # Frontend bir build adımı gerektirir; kaynak mount'u imajdaki derlemeyi
+    # ezeceği için PROD'da bağlanmaz. Kod değişince imaj yeniden build edilir.
     # Sadece localhost'a bağla - dışarıya yalnızca nginx üzerinden erişilir.
     ports:
       - "127.0.0.1:3000:3000"
@@ -300,6 +308,7 @@ volumes:
   redis_data:
   minio_data:
   btcpay_data:
+  celerybeat_data:
   monero_wallet_data:   # Sadece cüzdan dosyası (~100 MB), blockchain yok
   media_data:
 
