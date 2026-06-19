@@ -4,6 +4,7 @@ Payment API routes
 from datetime import datetime, timedelta
 from typing import Optional
 from uuid import UUID
+import secrets
 import qrcode
 import qrcode.image.svg
 from io import BytesIO
@@ -732,7 +733,22 @@ async def monero_webhook(
     request: Request,
     db: AsyncSession = Depends(get_db)
 ):
-    """Handle Monero payment notifications (called by background worker)"""
+    """
+    Monero ödeme bildirimi (yalnızca güvenilir iç çağrı için).
+
+    GÜVENLİK: Sahte webhook isteklerini engellemek için paylaşılan gizli anahtar
+    (X-Webhook-Secret) zorunludur. Asıl para yatırma akışını Celery worker
+    (check_monero_deposits) güvenli biçimde işler; bu uç nokta yardımcıdır.
+    Ayrıca tutar her durumda on-chain (wallet RPC) ile yeniden doğrulanır.
+    """
+    expected = settings.btcpay_webhook_secret  # ortak webhook sırrı (.env)
+    provided = request.headers.get("X-Webhook-Secret", "")
+    if not expected or not secrets.compare_digest(provided, expected):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Yetkisiz webhook",
+        )
+
     data = await request.json()
     payment_id = data.get("payment_id")
     
@@ -745,6 +761,10 @@ async def monero_webhook(
     payment_request = result.scalar_one_or_none()
     
     if not payment_request:
+        return {"status": "ok"}
+
+    # İdempotensi: zaten tamamlanmış isteği tekrar işleme (gereksiz RPC/DoS önle).
+    if payment_request.status == PaymentRequestStatus.COMPLETED:
         return {"status": "ok"}
     
     # Check payment

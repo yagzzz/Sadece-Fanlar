@@ -56,9 +56,10 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.error(f"Database connection failed: {e}")
 
-    # Production dışında tabloları otomatik oluştur (geliştirme kolaylığı).
-    # Production'da Alembic migration'ları kullanın.
-    if settings.auto_create_tables and not settings.is_production:
+    # Eksik tabloları oluştur. create_all yalnızca OLMAYAN tabloları ekler;
+    # mevcut tabloları asla düşürmez/değiştirmez (production'da da güvenli).
+    # Böylece yeni model eklendiğinde (ör. şipşak) tablo otomatik oluşur.
+    if settings.auto_create_tables:
         try:
             from app.core.database import init_db
             await init_db()
