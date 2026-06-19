@@ -1,8 +1,8 @@
 <script lang="ts">
 	import { api } from '$lib/api';
 	import { authStore } from '$lib/stores/auth';
-	import { PostCard, Landing, AdSlot } from '$lib/components/features';
-	import { Button, Spinner, Skeleton } from '$lib/components/ui';
+	import { PostCard, Landing, AdSlot, Stories } from '$lib/components/features';
+	import { Avatar, Button, Spinner, Skeleton, Icon } from '$lib/components/ui';
 	import type { Post } from '$lib/types';
 
 	let posts: Post[] = [];
@@ -116,24 +116,26 @@
 {#if isReady && !isLoggedIn}
 	<Landing />
 {:else}
-<div class="p-4 space-y-4">
-	<!-- Create Post CTA -->
+<div class="space-y-4">
+	<!-- Şipşak / hikayeler -->
 	{#if $authStore.user}
-		<div class="bg-white dark:bg-neutral-900 rounded-xl shadow-sm border border-neutral-200 dark:border-neutral-800 p-4">
-			<a
-				href="/new-post"
-				class="flex items-center gap-3 text-neutral-400 hover:text-neutral-500 transition-colors"
-			>
-				<div class="w-10 h-10 rounded-full bg-neutral-100 dark:bg-neutral-800" />
-				<span>Aklınızdan ne geçiyor?</span>
-			</a>
-		</div>
+		<Stories />
+
+		<!-- Gönderi oluştur CTA -->
+		<a
+			href="/new-post"
+			class="flex items-center gap-3 rounded-xl border border-border bg-card p-4 text-muted-foreground hover:border-primary/40 transition-colors"
+		>
+			<Avatar src={$authStore.user.avatar_url} alt={$authStore.user.display_name} size="sm" />
+			<span class="flex-1">Aklınızdan ne geçiyor?</span>
+			<span class="grid place-items-center w-9 h-9 rounded-lg bg-primary/10 text-primary"><Icon name="plus" size={18} /></span>
+		</a>
 	{/if}
 
-	<!-- Posts Feed -->
+	<!-- Gönderi akışı -->
 	{#if loading}
 		{#each Array(3) as _}
-			<div class="bg-white dark:bg-neutral-900 rounded-xl shadow-sm border border-neutral-200 dark:border-neutral-800 p-4 space-y-4">
+			<div class="rounded-xl border border-border bg-card p-4 space-y-4">
 				<div class="flex items-center gap-3">
 					<Skeleton variant="circular" width="48px" height="48px" />
 					<div class="flex-1">
@@ -146,15 +148,15 @@
 			</div>
 		{/each}
 	{:else if posts.length === 0}
-		<div class="text-center py-12">
-			<p class="text-4xl mb-4">📭</p>
-			<h2 class="text-xl font-semibold text-neutral-900 dark:text-white mb-2">
-				Akışınız boş
-			</h2>
-			<p class="text-neutral-500 mb-4">
-				İçerik üreticilerine abone olarak gönderilerini burada görün.
+		<div class="text-center py-16">
+			<div class="grid place-items-center w-14 h-14 rounded-2xl bg-muted text-muted-foreground mx-auto mb-4">
+				<Icon name="compass" size={28} />
+			</div>
+			<h2 class="text-lg font-semibold mb-2">Akışınız henüz boş</h2>
+			<p class="text-muted-foreground mb-5 text-sm max-w-sm mx-auto">
+				İçerik üreticilerine abone olduğunuzda gönderileri burada görünür.
 			</p>
-			<Button href="/explore">İçerik Üreticilerini Keşfet</Button>
+			<Button href="/explore"><Icon name="compass" size={16} class="mr-1.5" />Üreticileri keşfet</Button>
 		</div>
 	{:else}
 		<AdSlot position="feed" />

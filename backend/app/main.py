@@ -28,6 +28,7 @@ from app.api.routes import (
     tickets,
     escrow,
     ads,
+    stories,
 )
 
 # Configure logging
@@ -208,6 +209,7 @@ app.include_router(reports.router, prefix="/api/v1")
 app.include_router(tickets.router, prefix="/api/v1")
 app.include_router(escrow.router, prefix="/api/v1")
 app.include_router(ads.router, prefix="/api/v1")
+app.include_router(stories.router, prefix="/api/v1")
 
 
 # SEO endpoints

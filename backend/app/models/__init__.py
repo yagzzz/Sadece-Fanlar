@@ -20,6 +20,7 @@ from app.models.support import (
     EscrowRequest,
     EscrowStatus,
 )
+from app.models.story import Story, StoryView, StoryMediaType
 
 __all__ = [
     "Base",
@@ -35,4 +36,5 @@ __all__ = [
     "Setting", "PublicPage", "AdSlot", "FeaturedUser", "Report",
     "SupportTicket", "TicketMessage", "TicketStatus", "TicketCategory",
     "EscrowRequest", "EscrowStatus",
+    "Story", "StoryView", "StoryMediaType",
 ]

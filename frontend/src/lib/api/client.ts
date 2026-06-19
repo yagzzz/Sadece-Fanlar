@@ -600,5 +600,14 @@ export const adminApi = {
 	disputes: async () => { const d: any = await unwrap(api.get('/escrow/disputes')); return d?.items ?? []; },
 };
 
+// Stories (şipşak)
+(api as any).stories = {
+	feed: async () => { const d: any = await unwrap(api.get('/stories')); return d?.items ?? []; },
+	create: (data: { media_url: string; media_type?: string; caption?: string; single_view?: boolean; subscribers_only?: boolean; duration_hours?: number }) =>
+		unwrap(api.post('/stories', data)),
+	view: (id: string) => unwrap(api.post(`/stories/${id}/view`)),
+	remove: (id: string) => unwrap(api.delete(`/stories/${id}`))
+};
+
 // Screenshot flag
 (api as any).flagScreenshot = () => unwrap(api.post('/users/me/flag-screenshot'));
