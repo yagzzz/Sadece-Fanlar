@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { onMount, onDestroy } from 'svelte';
 	import { api } from '$lib/api';
+	import { wsUrl } from '$lib/api/client';
 	import { authStore } from '$lib/stores/auth';
 	import { MessageBubble } from '$lib/components/features';
 	import { Avatar, Button, Input, Spinner, Skeleton } from '$lib/components/ui';
@@ -55,7 +56,7 @@
 		if (ws) ws.close();
 
 		const token = localStorage.getItem('access_token');
-		ws = new WebSocket(`ws://localhost:8000/api/v1/messages/ws/${conversationId}?token=${token}`);
+		ws = new WebSocket(wsUrl(`/api/v1/messages/ws/${conversationId}?token=${token}`));
 
 		ws.onmessage = (event) => {
 			const message = JSON.parse(event.data);

@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { onMount, onDestroy } from 'svelte';
 	import { api } from '$lib/api';
+	import { wsUrl } from '$lib/api/client';
 	import { Avatar, Button, Spinner, Switch, Tabs } from '$lib/components/ui';
 	import { cn, timeAgo } from '$lib/utils';
 	import type { Notification } from '$lib/types';
@@ -54,7 +55,7 @@
 
 	function connectWebSocket() {
 		const token = localStorage.getItem('access_token');
-		ws = new WebSocket(`ws://localhost:8000/api/v1/notifications/ws?token=${token}`);
+		ws = new WebSocket(wsUrl(`/api/v1/notifications/ws?token=${token}`));
 
 		ws.onmessage = (event) => {
 			const notification = JSON.parse(event.data);

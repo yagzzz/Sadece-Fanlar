@@ -2,9 +2,23 @@
  * API Client for Sadece Fanlar
  */
 
-import { PUBLIC_API_URL } from '$env/static/public';
+import { PUBLIC_API_URL, PUBLIC_WS_URL } from '$env/static/public';
 
 const API_BASE = PUBLIC_API_URL ? `${PUBLIC_API_URL}/api/v1` : '/api/v1';
+
+/**
+ * WebSocket URL üretir. Tarayıcıda her zaman sayfanın servis edildiği host
+ * üzerinden (nginx) bağlanır; böylece domain değişse bile (IP -> alan adı)
+ * doğru çalışır ve sabit "localhost" hatası oluşmaz.
+ */
+export function wsUrl(path: string): string {
+	const p = path.startsWith('/') ? path : `/${path}`;
+	if (typeof window !== 'undefined') {
+		const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+		return `${proto}//${window.location.host}${p}`;
+	}
+	return `${PUBLIC_WS_URL || ''}${p}`;
+}
 
 interface ApiResponse<T> {
 	data?: T;
