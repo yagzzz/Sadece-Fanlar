@@ -130,13 +130,14 @@ services:
       - MONERO_WALLET_RPC_PASSWORD=${MONERO_WALLET_RPC_PASSWORD:?MONERO_WALLET_RPC_PASSWORD gerekli}
     volumes:
       - ./backend:/app
-      - celerybeat_data:/var/lib/celerybeat
     depends_on:
       - postgres
       - redis
     restart: unless-stopped
-    # Schedule dosyası /app'e yazılamıyor (Errno 13); kalıcı writable hacme yaz.
-    command: celery -A app.worker beat --loglevel=info --schedule=/var/lib/celerybeat/celerybeat-schedule --pidfile=
+    # Container appuser (uid 1000) olarak çalışır; /app ve named volume'lar root'a
+    # ait olduğundan yazılamıyordu (Errno 13). /tmp daima yazılabilir; beat schedule
+    # yalnızca son-çalışma zaman damgalarını tutar, kalıcı olması gerekmez.
+    command: celery -A app.worker beat --loglevel=info --schedule=/tmp/celerybeat-schedule --pidfile=
 
   # ============================================
   # FRONTEND
@@ -308,7 +309,6 @@ volumes:
   redis_data:
   minio_data:
   btcpay_data:
-  celerybeat_data:
   monero_wallet_data:   # Sadece cüzdan dosyası (~100 MB), blockchain yok
   media_data:
 
