@@ -5,6 +5,8 @@
 
 	let identifier = '';
 	let password = '';
+	let twoFactorCode = '';
+	let needs2fa = false;
 	let loading = false;
 	let error = '';
 
@@ -13,9 +15,10 @@
 		error = '';
 
 		try {
-			const result = await login({ username: identifier, password });
+			const result = await login({ username: identifier, password }, undefined, needs2fa ? twoFactorCode : undefined);
 			if ((result as any)?.requires2fa) {
-				error = 'Hesabınızda 2FA etkin. Lütfen kimlik doğrulayıcı uygulamanızdan giriş yapın.';
+				needs2fa = true;
+				error = '';
 				return;
 			}
 			if (result?.error) {
@@ -61,6 +64,17 @@
 			bind:value={password}
 			required
 		/>
+
+		{#if needs2fa}
+			<Input
+				label="İki faktörlü doğrulama kodu"
+				placeholder="000000"
+				bind:value={twoFactorCode}
+				maxlength="6"
+				required
+			/>
+			<p class="text-xs text-neutral-500 -mt-2">Authenticator uygulamanızdaki 6 haneli kodu girin.</p>
+		{/if}
 
 		<div class="flex items-center justify-between text-sm">
 			<label class="flex items-center gap-2">

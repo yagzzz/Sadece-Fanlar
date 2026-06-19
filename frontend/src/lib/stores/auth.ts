@@ -44,7 +44,8 @@ function createAuthStore() {
 
 		async login(
 			identifier: string | { username?: string; email?: string; password: string },
-			password?: string
+			password?: string,
+			twoFactorCode?: string
 		) {
 			update((s) => ({ ...s, loading: true }));
 
@@ -54,7 +55,11 @@ function createAuthStore() {
 					: identifier.username || identifier.email || '';
 			const finalPassword = typeof identifier === 'string' ? password || '' : identifier.password;
 
-			const response = await authApi.login({ username, password: finalPassword });
+			const response = await authApi.login({
+				username,
+				password: finalPassword,
+				two_factor_code: twoFactorCode || undefined
+			});
 			
 			if (response.error) {
 				update((s) => ({ ...s, loading: false }));

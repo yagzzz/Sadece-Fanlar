@@ -243,8 +243,8 @@ export const authApi = {
 		return api.post<{ access_token: string; refresh_token: string }>('/auth/register', payload);
 	},
 	
-	login: (data: { username: string; password: string }) =>
-		api.post<{ access_token: string; refresh_token: string }>('/auth/login', data),
+	login: (data: { username: string; password: string; two_factor_code?: string }) =>
+		api.post<{ access_token: string; refresh_token: string; requires_2fa?: boolean }>('/auth/login', data),
 	
 	logout: () => api.post('/auth/logout'),
 	
@@ -335,6 +335,11 @@ export const postApi = {
 (api as ApiClient & { users?: any; posts?: any }).posts = {
 	getFeed: async (page = 1, perPage = 20) => {
 		const data = await unwrap(postApi.getFeed(page));
+		const items = (data as any)?.posts ?? [];
+		return { items, page, perPage, total: (data as any)?.total ?? items.length, hasMore: (data as any)?.has_more ?? false };
+	},
+	getDiscover: async (page = 1, perPage = 20) => {
+		const data = await unwrap(api.get(`/posts/feed?page=${page}&per_page=${perPage}&discover=true`));
 		const items = (data as any)?.posts ?? [];
 		return { items, page, perPage, total: (data as any)?.total ?? items.length, hasMore: (data as any)?.has_more ?? false };
 	},
@@ -538,7 +543,8 @@ export const streamApi = {
 	changePassword: (data: { current_password: string; new_password: string }) =>
 		unwrap(api.post('/auth/change-password', data)),
 	setup2FA: () => unwrap(api.post('/auth/2fa/setup')),
-	disable2FA: (data?: { code?: string }) => unwrap(api.post('/auth/2fa/disable', data ?? {})),
+	verify2FA: (code: string) => unwrap(api.post('/auth/2fa/verify', { code })),
+	disable2FA: (code: string) => unwrap(api.post('/auth/2fa/disable', { code })),
 };
 
 export const adminApi = {

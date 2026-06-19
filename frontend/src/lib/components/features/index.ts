@@ -9,3 +9,4 @@ export { default as AdSlot } from './AdSlot.svelte';
 export { default as ReportModal } from './ReportModal.svelte';
 export { default as Watermark } from './Watermark.svelte';
 export { default as Stories } from './Stories.svelte';
+export { default as TwoFactorModal } from './TwoFactorModal.svelte';

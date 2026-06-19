@@ -207,61 +207,67 @@ async def upload_post_media(
 async def get_feed(
     page: int = Query(default=1, ge=1),
     per_page: int = Query(default=20, ge=1, le=50),
+    discover: bool = Query(default=False, description="True: tüm üreticilerden keşfet akışı"),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
-    """Get feed from subscribed creators"""
+    """
+    Akış. Varsayılan: abone olunan üreticiler (+ kendi gönderileri).
+    discover=True: TÜM üreticilerin herkese açık gönderileri (Keşfet sayfası);
+    kilitli içerik bulanık önizleme olarak görünür (check_post_access).
+    """
     offset = (page - 1) * per_page
-    
-    # Get subscribed creator IDs
-    result = await db.execute(
-        select(Subscription.creator_id).where(
-            and_(
-                Subscription.subscriber_id == current_user.id,
-                Subscription.status == SubscriptionStatus.ACTIVE
+
+    base_filters = [
+        Post.status == PostStatus.APPROVED,
+        Post.deleted_at.is_(None),
+        or_(Post.release_date.is_(None), Post.release_date <= datetime.utcnow()),
+        or_(Post.expire_date.is_(None), Post.expire_date > datetime.utcnow()),
+    ]
+
+    if discover:
+        # Keşfet: tüm onaylı gönderiler; popülerlik + güncellik sıralaması
+        query = (
+            select(Post)
+            .options(selectinload(Post.media), selectinload(Post.author))
+            .where(and_(*base_filters))
+            .order_by(desc(Post.likes_count), desc(Post.created_at))
+            .offset(offset)
+            .limit(per_page)
+        )
+        count_query = select(func.count(Post.id)).where(and_(*base_filters))
+    else:
+        # Get subscribed creator IDs
+        result = await db.execute(
+            select(Subscription.creator_id).where(
+                and_(
+                    Subscription.subscriber_id == current_user.id,
+                    Subscription.status == SubscriptionStatus.ACTIVE
+                )
             )
         )
-    )
-    creator_ids = [row[0] for row in result.all()]
-    
-    # Include own posts
-    creator_ids.append(current_user.id)
-    
-    # Get posts
-    query = (
-        select(Post)
-        .options(selectinload(Post.media), selectinload(Post.author))
-        .where(
+        creator_ids = [row[0] for row in result.all()]
+        # Include own posts
+        creator_ids.append(current_user.id)
+
+        query = (
+            select(Post)
+            .options(selectinload(Post.media), selectinload(Post.author))
+            .where(and_(Post.author_id.in_(creator_ids), *base_filters))
+            .order_by(desc(Post.is_pinned), desc(Post.created_at))
+            .offset(offset)
+            .limit(per_page)
+        )
+        count_query = select(func.count(Post.id)).where(
             and_(
                 Post.author_id.in_(creator_ids),
                 Post.status == PostStatus.APPROVED,
                 Post.deleted_at.is_(None),
-                or_(
-                    Post.release_date.is_(None),
-                    Post.release_date <= datetime.utcnow()
-                ),
-                or_(
-                    Post.expire_date.is_(None),
-                    Post.expire_date > datetime.utcnow()
-                )
             )
         )
-        .order_by(desc(Post.is_pinned), desc(Post.created_at))
-        .offset(offset)
-        .limit(per_page)
-    )
-    
+
     result = await db.execute(query)
     posts = result.scalars().all()
-    
-    # Get total count
-    count_query = select(func.count(Post.id)).where(
-        and_(
-            Post.author_id.in_(creator_ids),
-            Post.status == PostStatus.APPROVED,
-            Post.deleted_at.is_(None),
-        )
-    )
     total = await db.scalar(count_query)
     
     # Build response with access checks

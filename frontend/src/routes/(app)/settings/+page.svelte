@@ -5,7 +5,10 @@
 	import { authStore } from '$lib/stores/auth';
 	import { api, adminApi } from '$lib/api';
 	import { Avatar, Button, Card, Input, Switch, Tabs, Textarea } from '$lib/components/ui';
+	import { TwoFactorModal } from '$lib/components/features';
 	import { waitForAuth, isAdmin } from '$lib/utils/auth';
+
+	let show2faModal = false;
 
 	let loading = false;
 	let activeTab = 'profile';
@@ -256,23 +259,28 @@
 	}
 
 	async function toggle2FA() {
-		loading = true;
-		try {
-			if (twoFactorEnabled) {
-				await api.auth.disable2FA();
+		if (twoFactorEnabled) {
+			const code = prompt('2FA\'yı kapatmak için authenticator kodunu girin:');
+			if (!code) return;
+			loading = true;
+			try {
+				await api.auth.disable2FA(code.trim());
 				twoFactorEnabled = false;
-				alert('2FA disabled');
-			} else {
-				const response = await api.auth.setup2FA();
-				// Show QR code modal
-				alert('2FA setup initiated. Check your authenticator app.');
-				twoFactorEnabled = true;
+				alert('İki faktörlü doğrulama kapatıldı');
+			} catch (err: any) {
+				alert(err.message || '2FA kapatılamadı');
+			} finally {
+				loading = false;
 			}
-		} catch (err: any) {
-			alert(err.message || 'Failed to toggle 2FA');
-		} finally {
-			loading = false;
+		} else {
+			show2faModal = true;
 		}
+	}
+
+	function on2faEnabled() {
+		show2faModal = false;
+		twoFactorEnabled = true;
+		alert('İki faktörlü doğrulama etkinleştirildi');
 	}
 
 	function handleAvatarChange(e: Event) {
@@ -532,3 +540,7 @@
 		{/if}
 	</Tabs>
 </div>
+
+{#if show2faModal}
+	<TwoFactorModal on:enabled={on2faEnabled} on:close={() => (show2faModal = false)} />
+{/if}
