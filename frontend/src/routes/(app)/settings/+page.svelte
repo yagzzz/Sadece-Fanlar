@@ -380,12 +380,12 @@
 				<form on:submit|preventDefault={saveSubscriptionSettings} class="space-y-6">
 					<Input
 						type="number"
-						label="Aylık Abonelik Fiyatı ($)"
+						label="Aylık Abonelik Fiyatı (₺)"
 						bind:value={subscriptionPrice}
 						placeholder="Ücretsiz için 0"
 					/>
 					<p class="text-xs text-neutral-500 -mt-4">
-						Ücretsiz abonelik için 0 yazın. Platform %20 komisyon alır.
+						Ücretsiz abonelik için 0 yazın. Platform %5 komisyon alır.
 					</p>
 
 					<Textarea
@@ -512,9 +512,9 @@
 						<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
 							<Input label="Platform komisyonu (%)" type="number" bind:value={platformFee} />
 							<Input label="Çekim ücreti (%)" type="number" bind:value={withdrawalFee} />
-							<Input label="Min. çekim ($)" type="number" bind:value={minWithdrawal} />
-							<Input label="Min. abonelik ($)" type="number" bind:value={minSubPrice} />
-							<Input label="Max. abonelik ($)" type="number" bind:value={maxSubPrice} />
+							<Input label="Min. çekim (₺)" type="number" bind:value={minWithdrawal} />
+							<Input label="Min. abonelik (₺)" type="number" bind:value={minSubPrice} />
+							<Input label="Max. abonelik (₺)" type="number" bind:value={maxSubPrice} />
 							<Input label="Referans bonusu (%)" type="number" bind:value={referralBonus} />
 							<Input label="Max. yükleme (MB)" type="number" bind:value={maxUploadMb} />
 						</div>

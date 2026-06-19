@@ -35,7 +35,7 @@ from app.core.security import (
 )
 from app.core.redis import Cache, RateLimiter
 from app.models.user import User, UserSettings, UserDevice
-from app.models.transaction import Wallet
+from app.models.transaction import Wallet, Transaction, TransactionType, TransactionStatus, PaymentMethod
 from app.schemas.user import (
     UserCreate,
     UserLogin,
@@ -124,8 +124,28 @@ async def register(
     await db.flush()
     
     # Cüzdan oluştur (her kullanıcının bir cüzdanı var)
-    wallet = Wallet(user_id=user.id)
+    # Lansman/test dönemi: yeni kullanıcıya başlangıç bakiyesi (admin ayarından).
+    from app.services.site_settings import get_setting
+    try:
+        signup_bonus = float(await get_setting(db, "signup_bonus_try"))
+    except Exception:
+        signup_bonus = 0.0
+    wallet = Wallet(user_id=user.id, balance=round(max(0.0, signup_bonus), 2))
     db.add(wallet)
+
+    if signup_bonus > 0:
+        db.add(Transaction(
+            user_id=user.id,
+            recipient_id=user.id,
+            type=TransactionType.DEPOSIT,
+            status=TransactionStatus.COMPLETED,
+            amount=round(signup_bonus, 2),
+            fee=0,
+            net_amount=round(signup_bonus, 2),
+            currency="TRY",
+            payment_method=PaymentMethod.WALLET,
+            description="Hoş geldin bakiyesi",
+        ))
     
     # Kullanıcı ayarları oluştur
     settings = UserSettings(user_id=user.id)

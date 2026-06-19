@@ -165,6 +165,14 @@ class ApiClient {
 		});
 	}
 
+	// PATCH request
+	async patch<T>(endpoint: string, body?: unknown): Promise<ApiResponse<T>> {
+		return this.request<T>(endpoint, {
+			method: 'PATCH',
+			body: body ? JSON.stringify(body) : undefined,
+		});
+	}
+
 	// DELETE request
 	async delete<T>(endpoint: string): Promise<ApiResponse<T>> {
 		return this.request<T>(endpoint, { method: 'DELETE' });
@@ -256,7 +264,9 @@ export const authApi = {
 // User API
 export const userApi = {
 	getMe: () => api.get('/users/me'),
-	updateProfile: (data: any) => api.put('/users/me', data),
+	updateProfile: (data: any) => api.patch('/users/me', data),
+	getSettings: () => api.get('/users/me/settings'),
+	updateSettings: (data: any) => api.patch('/users/me/settings', data),
 	getUser: (username: string) => api.get(`/users/${username}`),
 	follow: (username: string) => api.post(`/users/${username}/follow`),
 	unfollow: (username: string) => api.delete(`/users/${username}/follow`),
@@ -286,11 +296,15 @@ export const postApi = {
 	follow: (username: string) => unwrap(userApi.follow(username)),
 	unfollow: (username: string) => unwrap(userApi.unfollow(username)),
 	getSettings: async () => {
-		const me = await userApi.getMe();
-		return me.data ?? {};
+		try {
+			return await unwrap(userApi.getSettings());
+		} catch {
+			const me = await userApi.getMe();
+			return me.data ?? {};
+		}
 	},
 	updateProfile: (data: any) => unwrap(userApi.updateProfile(data)),
-	updateSettings: (data: any) => unwrap(userApi.updateProfile(data)),
+	updateSettings: (data: any) => unwrap(userApi.updateSettings(data)),
 	uploadAvatar: (file: File) => unwrap(api.upload('/users/me/avatar', fileToFormData(file))),
 	uploadCover: (file: File) => unwrap(api.upload('/users/me/cover', fileToFormData(file))),
 	// Gizlilik öncelikli içerik üretici başvurusu - kimlik/yüz fotoğrafı İSTENMEZ.
@@ -533,6 +547,9 @@ export const adminApi = {
 	getStats: () => unwrap(api.get('/admin/stats')),
 	credit: (username: string, amount: number, note?: string) =>
 		unwrap(api.post('/admin/credit', { username, amount, note })),
+	setBalance: (userId: string, balance: number) => unwrap(api.put(`/admin/users/${userId}/balance`, { balance })),
+	creditAll: (amount: number, opts?: { set?: boolean; note?: string }) =>
+		unwrap(api.post('/admin/credit-all', { amount, set: opts?.set ?? false, note: opts?.note })),
 	setRole: (userId: string, role: string) => unwrap(api.put(`/admin/users/${userId}/role`, { role })),
 	listUsers: async (params?: { page?: number; search?: string }) => {
 		const q = new URLSearchParams();

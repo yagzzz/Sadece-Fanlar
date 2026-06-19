@@ -10,7 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, and_
 
 from app.core.database import get_db
-from app.models.user import User, UserVerification, VerificationStatus
+from app.models.user import User, UserVerification, VerificationStatus, UserSettings
 from app.models.subscription import Subscription, SubscriptionStatus
 from app.models.content import UserList, UserListMember, ListType
 from app.schemas.user import (
@@ -99,6 +99,104 @@ async def update_current_user(
     await db.refresh(current_user)
     
     return current_user
+
+
+async def _get_or_create_settings(db: AsyncSession, user_id: UUID) -> UserSettings:
+    res = await db.execute(select(UserSettings).where(UserSettings.user_id == user_id))
+    s = res.scalar_one_or_none()
+    if not s:
+        s = UserSettings(user_id=user_id)
+        db.add(s)
+        await db.flush()
+    return s
+
+
+def _settings_payload(user: User, s: UserSettings) -> dict:
+    """Profil ayarları + tercihler tek nesnede (frontend ayarlar sayfası için)."""
+    return {
+        # Kullanıcı seviyesi
+        "subscription_price": float(user.subscription_price or 0),
+        "show_subscribers_count": bool(user.show_subscribers_count),
+        "allow_comments": bool(user.allow_comments),
+        "two_factor_enabled": bool(user.two_factor_enabled),
+        # UserSettings seviyesi
+        "welcome_message": s.welcome_message or "",
+        "allow_messages": bool(s.allow_message_requests),
+        "show_online_status": bool(s.show_online_status),
+        "show_activity_status": bool(s.show_last_seen),
+        "email_notifications": bool(s.email_notifications),
+        "push_notifications": bool(s.push_notifications),
+        "new_subscriber_notify": bool(s.notify_new_subscriber),
+        "new_tip_notify": bool(s.notify_new_tip),
+        "new_comment_notify": bool(s.notify_new_comment),
+        "new_message_notify": bool(s.notify_new_message),
+        "default_payment_method": s.default_payment_method,
+        "monero_address": s.monero_address,
+    }
+
+
+@router.get("/me/settings")
+async def get_my_settings(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Kullanıcının tüm ayar/tercihlerini döndürür (profil + bildirim + gizlilik)."""
+    s = await _get_or_create_settings(db, current_user.id)
+    await db.commit()
+    return _settings_payload(current_user, s)
+
+
+@router.patch("/me/settings")
+async def update_my_settings(
+    payload: dict,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Ayarları kaydeder. Frontend anahtarlarını doğru tabloya (User/UserSettings)
+    eşler; böylece abonelik fiyatı, bildirim, gizlilik ve karşılama mesajı kalıcı olur.
+    """
+    s = await _get_or_create_settings(db, current_user.id)
+
+    # Kullanıcı seviyesi alanlar
+    if "subscription_price" in payload and payload["subscription_price"] is not None:
+        try:
+            current_user.subscription_price = max(0.0, round(float(payload["subscription_price"]), 2))
+        except (TypeError, ValueError):
+            pass
+    if "show_subscribers_count" in payload:
+        current_user.show_subscribers_count = bool(payload["show_subscribers_count"])
+    if "allow_comments" in payload:
+        current_user.allow_comments = bool(payload["allow_comments"])
+
+    # UserSettings seviyesi alanlar
+    bool_map = {
+        "allow_messages": "allow_message_requests",
+        "show_online_status": "show_online_status",
+        "show_activity_status": "show_last_seen",
+        "email_notifications": "email_notifications",
+        "push_notifications": "push_notifications",
+        "new_subscriber_notify": "notify_new_subscriber",
+        "new_tip_notify": "notify_new_tip",
+        "new_comment_notify": "notify_new_comment",
+        "new_message_notify": "notify_new_message",
+    }
+    for key, attr in bool_map.items():
+        if key in payload:
+            setattr(s, attr, bool(payload[key]))
+
+    if "welcome_message" in payload:
+        wm = payload.get("welcome_message") or ""
+        s.welcome_message = str(wm)[:1000]
+    if "default_payment_method" in payload:
+        s.default_payment_method = payload.get("default_payment_method")
+    if "monero_address" in payload:
+        s.monero_address = payload.get("monero_address")
+
+    await db.commit()
+    await db.refresh(current_user)
+    await db.refresh(s)
+    return _settings_payload(current_user, s)
 
 
 @router.post("/me/avatar", response_model=UserResponse)

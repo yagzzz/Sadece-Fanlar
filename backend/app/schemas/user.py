@@ -201,11 +201,11 @@ class UserUpdate(BaseModel):
     location: Optional[str] = Field(None, max_length=100)
     website: Optional[str] = Field(None, max_length=255)
     
-    # İçerik üreticisi ayarları
-    subscription_price: Optional[float] = Field(None, ge=0, le=1000)       # Aylık fiyat (0-1000)
-    subscription_price_3m: Optional[float] = Field(None, ge=0, le=3000)    # 3 aylık
-    subscription_price_6m: Optional[float] = Field(None, ge=0, le=6000)    # 6 aylık
-    subscription_price_12m: Optional[float] = Field(None, ge=0, le=12000)  # Yıllık
+    # İçerik üreticisi ayarları (TL — yüksek tavanlar)
+    subscription_price: Optional[float] = Field(None, ge=0, le=100000)       # Aylık fiyat (TL)
+    subscription_price_3m: Optional[float] = Field(None, ge=0, le=300000)    # 3 aylık
+    subscription_price_6m: Optional[float] = Field(None, ge=0, le=600000)    # 6 aylık
+    subscription_price_12m: Optional[float] = Field(None, ge=0, le=1200000)  # Yıllık
     is_free_profile: Optional[bool] = None  # Ücretsiz profile geç
     
     # Gizlilik ayarları
@@ -224,7 +224,7 @@ class BecomeCreatorRequest(BaseModel):
     """
     display_name: str = Field(..., max_length=100)           # Görünen ad (takma ad olabilir)
     bio: str = Field(..., max_length=1000)                   # Biyografi (zorunlu)
-    subscription_price: float = Field(..., ge=0, le=1000)    # Aylık abonelik fiyatı
+    subscription_price: float = Field(..., ge=0, le=100000)    # Aylık abonelik fiyatı (TL)
     categories: List[str] = Field(default_factory=list, max_length=20)  # İçerik kategorileri
     age_confirmed: bool = Field(..., description="18 yaşından büyük olduğunuzu onaylayın")
 

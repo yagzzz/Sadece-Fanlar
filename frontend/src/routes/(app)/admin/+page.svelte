@@ -26,6 +26,8 @@
 	let creditUser = '';
 	let creditAmount = 0;
 	let creditNote = '';
+	let bulkAmount = 10000;
+	let bulkSet = false;
 	// Reklam formu
 	let adForm = { title: '', position: 'feed', media_url: '', target_url: '', is_video: false, active: true };
 	// Kullanıcı arama
@@ -103,6 +105,19 @@
 	async function doCredit() {
 		if (!creditUser || creditAmount <= 0) { error = 'Kullanıcı ve tutar gerekli'; return; }
 		try { const r: any = await adminApi.credit(creditUser, creditAmount, creditNote); flash(`${creditUser} → yeni bakiye: ${formatCurrency(r.balance)}`); creditAmount = 0; creditNote = ''; }
+		catch (e: any) { error = e?.message; }
+	}
+	async function doCreditAll() {
+		if (!confirm(`TÜM kullanıcılara ${bulkSet ? 'bakiye = ' : '+'}${formatCurrency(bulkAmount)} uygulansın mı?`)) return;
+		try { const r: any = await adminApi.creditAll(bulkAmount, { set: bulkSet }); flash(`${r.updated_users} kullanıcı güncellendi`); }
+		catch (e: any) { error = e?.message; }
+	}
+	async function setUserBalance(u: any) {
+		const v = prompt(`@${u.username} için yeni bakiye (TL):`, String(u.balance ?? 0));
+		if (v === null) return;
+		const bal = parseFloat(v);
+		if (isNaN(bal) || bal < 0) { error = 'Geçersiz bakiye'; return; }
+		try { const r: any = await adminApi.setBalance(u.id, bal); u.balance = r.balance; users = users; flash(`@${u.username} → ${formatCurrency(r.balance)}`); }
 		catch (e: any) { error = e?.message; }
 	}
 	async function createAd() {
@@ -287,12 +302,24 @@
 				</div>
 
 			{:else if tab === 'credit'}
-				<div class="rounded-xl border border-border bg-card p-4 space-y-3 max-w-md">
-					<p class="font-medium text-sm">Manuel bakiye yükle (TL)</p>
-					<Input bind:value={creditUser} placeholder="Kullanıcı adı" />
-					<Input type="number" bind:value={creditAmount} placeholder="Tutar (TL)" />
-					<Input bind:value={creditNote} placeholder="Not (opsiyonel)" />
-					<Button size="sm" on:click={doCredit}>Bakiye ekle</Button>
+				<div class="grid sm:grid-cols-2 gap-3">
+					<div class="rounded-xl border border-border bg-card p-4 space-y-3">
+						<p class="font-medium text-sm">Tek kullanıcıya bakiye ekle (TL)</p>
+						<Input bind:value={creditUser} placeholder="Kullanıcı adı" />
+						<Input type="number" bind:value={creditAmount} placeholder="Tutar (TL)" />
+						<Input bind:value={creditNote} placeholder="Not (opsiyonel)" />
+						<Button size="sm" on:click={doCredit}>Bakiye ekle</Button>
+					</div>
+					<div class="rounded-xl border border-border bg-card p-4 space-y-3">
+						<p class="font-medium text-sm">Toplu işlem (tüm kullanıcılar)</p>
+						<Input type="number" bind:value={bulkAmount} placeholder="Tutar (TL)" />
+						<label class="flex items-center gap-2 text-sm">
+							<input type="checkbox" bind:checked={bulkSet} />
+							Ekleme yerine bakiyeyi bu değere AYARLA
+						</label>
+						<Button size="sm" variant="outline" on:click={doCreditAll}>Tüm kullanıcılara uygula</Button>
+						<p class="text-xs text-muted-foreground">Not: Kullanıcı bazında bakiyeyi "Kullanıcılar" sekmesinden de ayarlayabilirsiniz.</p>
+					</div>
 				</div>
 
 			{:else if tab === 'users'}
@@ -305,14 +332,15 @@
 						<div class="rounded-xl border border-border bg-card p-3 flex items-center justify-between gap-3">
 							<div class="min-w-0">
 								<p class="text-sm font-medium truncate">{u.display_name || u.username} <span class="text-xs text-muted-foreground">@{u.username}</span></p>
-								<p class="text-xs text-muted-foreground">{u.role || 'user'} · {u.status || (u.is_banned ? 'banned' : 'active')}</p>
+								<p class="text-xs text-muted-foreground">{u.role || 'user'} · {u.status || (u.is_banned ? 'banned' : 'active')}{#if u.balance != null} · {formatCurrency(u.balance)}{/if}</p>
 							</div>
-							<div class="flex gap-2 shrink-0">
+							<div class="flex flex-wrap gap-2 shrink-0 justify-end">
 								<select class="input h-9 w-auto text-xs" on:change={(e) => setRole(u, e.currentTarget.value)}>
 									<option value="user" selected={u.role === 'user' || !u.role}>user</option>
 									<option value="moderator" selected={u.role === 'moderator'}>moderator</option>
 									<option value="admin" selected={u.role === 'admin'}>admin</option>
 								</select>
+								<Button size="sm" variant="outline" on:click={() => setUserBalance(u)}>Bakiye</Button>
 								<Button size="sm" variant={u.status === 'banned' || u.is_banned ? 'outline' : 'danger'} on:click={() => toggleBan(u)}>
 									{u.status === 'banned' || u.is_banned ? 'Yasağı kaldır' : 'Yasakla'}
 								</Button>

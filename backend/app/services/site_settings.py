@@ -25,6 +25,7 @@ SETTING_DEFAULTS: Dict[str, Any] = {
     "btcpay_enabled": True,
     "referral_bonus_percent": app_settings.referral_bonus_percent,
     "max_upload_size_mb": app_settings.max_upload_size_mb,
+    "signup_bonus_try": app_settings.signup_bonus_try,
 }
 
 SETTING_TYPES: Dict[str, str] = {
@@ -42,6 +43,7 @@ SETTING_TYPES: Dict[str, str] = {
     "btcpay_enabled": "boolean",
     "referral_bonus_percent": "number",
     "max_upload_size_mb": "number",
+    "signup_bonus_try": "number",
 }
 
 

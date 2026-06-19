@@ -88,10 +88,12 @@ class Settings(BaseSettings):
     monero_confirmations_required: int = 10
     
     # Platform settings
-    platform_fee_percent: float = 20.0  # 20% platform fee
+    platform_fee_percent: float = 5.0   # %5 platform komisyonu
     withdrawal_fee_percent: float = 2.0  # İçerik üreticisi para çekme ücreti
     min_withdrawal_amount: float = 50.0
-    max_withdrawal_amount: float = 10000.0
+    max_withdrawal_amount: float = 100000.0
+    # Yeni kullanıcıya verilen başlangıç bakiyesi (TL). Lansman/test için.
+    signup_bonus_try: float = 10000.0
     referral_bonus_percent: float = 5.0
 
     # Geliştirme kolaylığı: production dışında tabloları otomatik oluştur.

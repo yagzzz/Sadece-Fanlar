@@ -773,6 +773,97 @@ async def admin_credit_wallet(
     return {"username": username, "balance": float(wallet.balance), "credited": amount}
 
 
+@router.put("/users/{user_id}/balance")
+async def admin_set_balance(
+    user_id: UUID,
+    payload: dict,
+    admin: User = Depends(get_admin_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Bir kullanıcının bakiyesini KESİN değere ayarlar (admin tam yetki)."""
+    try:
+        new_balance = round(float(payload.get("balance")), 2)
+    except (TypeError, ValueError):
+        raise HTTPException(status_code=400, detail="Geçersiz bakiye")
+    if new_balance < 0:
+        raise HTTPException(status_code=400, detail="Bakiye negatif olamaz")
+
+    user = (await db.execute(select(User).where(User.id == user_id))).scalar_one_or_none()
+    if not user:
+        raise HTTPException(status_code=404, detail="Kullanıcı bulunamadı")
+
+    wallet = await wallet_service.get_or_create_wallet(db, user.id)
+    old = float(wallet.balance)
+    wallet.balance = new_balance
+    diff = round(new_balance - old, 2)
+    db.add(Transaction(
+        user_id=user.id, recipient_id=user.id,
+        type=TransactionType.DEPOSIT if diff >= 0 else TransactionType.REFUND,
+        status=TransactionStatus.COMPLETED,
+        amount=abs(diff), fee=0, net_amount=abs(diff), currency="TRY",
+        payment_method=PaymentMethod.WALLET,
+        description=f"Admin bakiye ayarı: {old} → {new_balance}",
+    ))
+    await db.commit()
+
+    await log_admin_action(
+        db=db, admin_id=admin.id, action=AdminAction.UPDATE_SETTINGS,
+        target_type="wallet", target_id=user.id,
+        details={"old": old, "new": new_balance},
+    )
+    return {"id": str(user.id), "username": user.username, "balance": new_balance}
+
+
+@router.post("/credit-all")
+async def admin_credit_all(
+    payload: dict,
+    admin: User = Depends(get_admin_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    TÜM kullanıcılara toplu TL bakiye ekler (lansman/test için).
+    payload: { "amount": 10000, "note": "...", "set": false }
+    set=true ise bakiyeyi KESİN değere ayarlar; aksi halde ekler.
+    """
+    try:
+        amount = round(float(payload.get("amount") or 0), 2)
+    except (TypeError, ValueError):
+        raise HTTPException(status_code=400, detail="Geçersiz tutar")
+    as_set = bool(payload.get("set"))
+    if amount < 0:
+        raise HTTPException(status_code=400, detail="Tutar negatif olamaz")
+
+    users = (await db.execute(select(User))).scalars().all()
+    count = 0
+    for u in users:
+        wallet = await wallet_service.get_or_create_wallet(db, u.id)
+        old = float(wallet.balance)
+        if as_set:
+            wallet.balance = amount
+            diff = round(amount - old, 2)
+        else:
+            wallet.balance = round(old + amount, 2)
+            diff = amount
+        if diff != 0:
+            db.add(Transaction(
+                user_id=u.id, recipient_id=u.id,
+                type=TransactionType.DEPOSIT if diff >= 0 else TransactionType.REFUND,
+                status=TransactionStatus.COMPLETED,
+                amount=abs(diff), fee=0, net_amount=abs(diff), currency="TRY",
+                payment_method=PaymentMethod.WALLET,
+                description=payload.get("note") or "Toplu bakiye (admin)",
+            ))
+        count += 1
+    await db.commit()
+
+    await log_admin_action(
+        db=db, admin_id=admin.id, action=AdminAction.UPDATE_SETTINGS,
+        target_type="wallet", target_id=admin.id,
+        details={"amount": amount, "set": as_set, "users": count},
+    )
+    return {"updated_users": count, "amount": amount, "set": as_set}
+
+
 @router.put("/users/{user_id}/role")
 async def set_user_role(
     user_id: UUID,

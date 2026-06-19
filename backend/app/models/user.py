@@ -227,6 +227,9 @@ class UserSettings(Base):
     show_online_status: Mapped[bool] = mapped_column(Boolean, default=True)
     show_last_seen: Mapped[bool] = mapped_column(Boolean, default=True)
     allow_message_requests: Mapped[bool] = mapped_column(Boolean, default=True)
+
+    # İçerik üreticisi: yeni abonelere otomatik gönderilen karşılama mesajı
+    welcome_message: Mapped[Optional[str]] = mapped_column(String(1000))
     
     # Payment preferences
     default_payment_method: Mapped[Optional[str]] = mapped_column(String(20))  # monero, btcpay
