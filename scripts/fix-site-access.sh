@@ -4,7 +4,7 @@
 set -euo pipefail
 
 APP_DIR="${APP_DIR:-/opt/sadece-fanlar}"
-BRANCH="${BRANCH:-cursor/audit-and-harden-platform-c4e2}"
+BRANCH="${BRANCH:-main}"
 
 cd "$APP_DIR"
 

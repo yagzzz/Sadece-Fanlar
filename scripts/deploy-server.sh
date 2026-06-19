@@ -6,7 +6,7 @@ set -euo pipefail
 
 SERVER_IP="${SERVER_IP:-31.57.187.149}"
 APP_DIR="/opt/sadece-fanlar"
-BRANCH="${BRANCH:-cursor/audit-and-harden-platform-c4e2}"
+BRANCH="${BRANCH:-main}"
 REPO="https://github.com/yagzzz/Sadece-Fanlar.git"
 
 echo "==> Docker kurulumu"
@@ -123,6 +123,9 @@ sleep 15
 
 echo "==> Sağlık kontrolü"
 curl -sf http://127.0.0.1:8000/health || docker compose logs backend --tail 30
+
+echo "==> Nginx/frontend senkron (502 önleme)"
+bash scripts/fix-site-access.sh
 
 echo ""
 echo "============================================"
